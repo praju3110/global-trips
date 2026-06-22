@@ -1,0 +1,204 @@
+{
+  "app_name": "RoamSync",
+  "personality": "6 Glass / Luxe structure with 2 Expressive vibrant accents",
+  "personality_one_liner": "A sleek, cinematic travel companion with deep obsidian surfaces, rich glassmorphism, and vibrant sunset accents for a premium, collaborative journey.",
+  "color": {
+    "surface": "#0F1115",
+    "onSurface": "#F3F4F6",
+    "surfaceSecondary": "#1A1D24",
+    "onSurfaceSecondary": "#E5E7EB",
+    "surfaceTertiary": "#272B36",
+    "onSurfaceTertiary": "#D1D5DB",
+    "surfaceInverse": "#FFFFFF",
+    "onSurfaceInverse": "#0F1115",
+    "brand": "#FF6B4A",
+    "brandPrimary": "#FF6B4A",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#EAB308",
+    "onBrandSecondary": "#18181B",
+    "brandTertiary": "#FF6B4A20",
+    "onBrandTertiary": "#FF937A",
+    "success": "#10B981",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "info": "#A1A1AA",
+    "onInfo": "#18181B",
+    "border": "#272B36",
+    "borderStrong": "#3F4554",
+    "divider": "#272B36"
+  },
+  "typography": {
+    "displayFontFamily": "Outfit",
+    "textFontFamily": "Plus Jakarta Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous cinematic spacing. Content breathes. Margins are 'lg' or 'xl' on screen roots. Cards have 'md' to 'lg' internal padding.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use heavily on sticky headers, bottom tabs, FABs, and bottom sheet handles.",
+      "Apply frosted glass overlays on featured trip hero cards over imagery.",
+      "Pair blur with translucent tinted base (>=75% surface) underneath to guarantee readability."
+    ],
+    "dont's": [
+      "Never blur body text regions, form fields, or standard list rows.",
+      "Never stack more than 2 glass surfaces."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "haptics": {
+    "tab_press": "light",
+    "button_primary": "medium",
+    "expense_split_change": "light",
+    "itinerary_timeline_scroll_snap": "selection",
+    "fab_press": "medium"
+  },
+  "screens": [
+    {
+      "name": "Auth",
+      "purpose": "Cinematic entry to the app with email/Google login and avatar/name setup.",
+      "states": {
+        "loading": "Centered spinner",
+        "empty": "N/A",
+        "error": "Toast or inline text"
+      },
+      "layout": "Full-bleed background image with a dark gradient scrim (top to bottom). Form inputs in translucent glass cards at the lower third."
+    },
+    {
+      "name": "Trips Dashboard",
+      "purpose": "Overview of Upcoming and Past trips via segmented tabs, with a FAB to create/join trips.",
+      "states": {
+        "loading": "Skeleton cards",
+        "empty": "Illustration of luggage/globe, 'No trips yet', 'Create Trip' CTA.",
+        "error": "Error text + Retry"
+      },
+      "layout": "Sticky glass header. Masonry or large vertical hero-image trip cards. Each card uses a gradient overlay, bold 'Outfit' typography for destination/dates, and glass tags."
+    },
+    {
+      "name": "Trip Detail - Itinerary",
+      "purpose": "Vertical day-by-day timeline of the trip.",
+      "states": {
+        "loading": "Timeline skeletons",
+        "empty": "Illustration, 'Add first plan' CTA.",
+        "error": "Error text + Retry"
+      },
+      "layout": "Sticky glass top nav with 5 tabs. Timeline layout with an 'Active Day' live banner that uses a pulsing indicator (reanimated) and live elapsed timer. Inline editing for members/admins."
+    },
+    {
+      "name": "Trip Detail - Travel",
+      "purpose": "Display transport segments in a stunning boarding pass UI.",
+      "states": {
+        "loading": "Card skeletons",
+        "empty": "Illustration of ticket, 'Add flight/train'.",
+        "error": "Error text + Retry"
+      },
+      "layout": "Cards with dashed/perforated separators. High contrast typography. Sections for visual route (origin -> destination) and passenger list (avatar + seat)."
+    },
+    {
+      "name": "Trip Detail - Expenses",
+      "purpose": "Ledger, Split particulars, and Transactions tracker.",
+      "states": {
+        "loading": "List skeletons",
+        "empty": "Illustration, 'No expenses logged'.",
+        "error": "Error text + Retry"
+      },
+      "layout": "Top segmented control (Cost Share, Particulars, Transactions). Stacked horizontal bar chart for spending categories. Fun Fact cards (e.g., 'Daily Burn Rate') as surfaceSecondary tonal blocks."
+    },
+    {
+      "name": "Trip Detail - Media",
+      "purpose": "Collaborative shared photo/video album.",
+      "states": {
+        "loading": "Grid skeletons",
+        "empty": "Illustration, 'Upload first photo'.",
+        "error": "Error text + Retry"
+      },
+      "layout": "Masonry image grid. Floating Action Button to upload. Inline emoji reactions on images."
+    },
+    {
+      "name": "Trip Detail - Restaurant",
+      "purpose": "Collaborative dining sessions to split bills by item.",
+      "states": {
+        "loading": "List skeletons",
+        "empty": "Illustration, 'Start dining session'.",
+        "error": "Error text + Retry"
+      },
+      "layout": "List of menu items with 'who ordered'. Bottom sticky glass panel for Tax/Tip sliders and Final Split total."
+    },
+    {
+      "name": "Trip Wrapped",
+      "purpose": "Spotify-Wrapped style post-trip analytics.",
+      "states": {
+        "loading": "Animated loader",
+        "empty": "N/A",
+        "error": "Error text + Retry"
+      },
+      "layout": "Full-bleed cards with heavy typography (Outfit 3xl), micro-animations (Reanimated), auto-advancing progress bars at the top, tapping left/right to navigate."
+    }
+  ],
+  "images": {
+    "auth_background": {
+      "url": "https://images.unsplash.com/photo-1768406091207-222997cd6584?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwyfHxiZWF1dGlmdWwlMjB0cmF2ZWwlMjBkZXN0aW5hdGlvbiUyMGhlcm8lMjBpbWFnZXxlbnwwfHx8fDE3ODIxNTM1NDl8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Woman facing dramatic ocean cliffs"
+    },
+    "trip_card_hero_1": {
+      "url": "https://images.unsplash.com/photo-1773378998468-dca683d776e7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwzfHxiZWF1dGlmdWwlMjB0cmF2ZWwlMjBkZXN0aW5hdGlvbiUyMGhlcm8lMjBpbWFnZXxlbnwwfHx8fDE3ODIxNTM1NDl8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Limestone karsts and tropical beach"
+    },
+    "travel_boarding_pass_hero": {
+      "url": "https://images.pexels.com/photos/30341994/pexels-photo-30341994.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Airplane wing flying over city at sunset"
+    },
+    "restaurant_hero": {
+      "url": "https://images.unsplash.com/photo-1755811248324-c70c1f10a7fd?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHwyfHxyZXN0YXVyYW50JTIwZGluaW5nJTIwZm9vZCUyMGZyaWVuZHN8ZW58MHx8fHwxNzgyMTUzNTQ5fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Friends enjoying food at a round table"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the dark mode base (`surface`: `#0F1115`) with vibrant `#FF6B4A` accents. Absolutely NO BLUES, strictly forbidden by guidelines.",
+    "Implement glassmorphism (`expo-blur`) for sticky headers, FABs, and the bottom nav. ALWAYS layer a 75%+ opacity tint behind the blur for foreground contrast.",
+    "Typography: Use `Outfit` for large titles and numbers (Expenses/Wrapped), `Plus Jakarta Sans` for body text. Restrict font weights to 400/500.",
+    "For the Travel tab, build a 'Boarding Pass' component. Use dashed borders or SVG cutouts to simulate perforated paper edges, paired with high-contrast typography for gates/seats.",
+    "For Expenses, stack the bar charts horizontally. Replicate modern split-app UI: show clear 'Who Owes What' lists.",
+    "Ensure the 'Active Day' banner in the Itinerary tab uses `react-native-reanimated` for a subtle pulsing indicator.",
+    "Trip Wrapped must use full-screen paging with bold typography and auto-advancing progress bars (like Spotify Wrapped).",
+    "Always apply a top-to-bottom gradient scrim (transparent to surfaceInverse) over hero background images to ensure text readability."
+  ]
+}
