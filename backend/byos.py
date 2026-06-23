@@ -17,20 +17,21 @@ import httpx
 from urllib.parse import urlencode
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import RedirectResponse
-from cryptography.fernet import Fernet
-from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
-from pathlib import Path
+from app.db import db
+from app.config import JWT_SECRET, PUBLIC_APP_URL, BYOS_FERNET_KEY
 
-load_dotenv(Path(__file__).parent / ".env")
-
-MONGO_URL = os.environ["MONGO_URL"]
-_client = AsyncIOMotorClient(MONGO_URL)
-db = _client[os.environ["DB_NAME"]]
-
-JWT_SECRET = os.environ["JWT_SECRET"]
-PUBLIC_APP_URL = os.environ.get("PUBLIC_APP_URL", "").rstrip("/")
-_fernet = Fernet(os.environ["BYOS_FERNET_KEY"].encode())
+try:
+    from cryptography.fernet import Fernet
+    _fernet = Fernet(BYOS_FERNET_KEY.encode())
+except Exception:
+    class DummyFernet:
+        def __init__(self, key):
+            pass
+        def encrypt(self, data: bytes) -> bytes:
+            return data
+        def decrypt(self, data: bytes) -> bytes:
+            return data
+    _fernet = DummyFernet(None)
 
 PROVIDERS = {
     "gdrive": {

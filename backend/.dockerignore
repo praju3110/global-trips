@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Local Environment / Configs
+.env
+.env.*
+*.local
+credentials.json
+service-account.json
+
+# IDE / System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
