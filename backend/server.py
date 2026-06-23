@@ -959,10 +959,8 @@ async def dining_split(trip_id: str, session_id: str, user=Depends(get_current_u
 
 
 # ----------------------------- Trip Wrapped -----------------------------
-@api_router.get("/trips/{trip_id}/wrapped")
-async def trip_wrapped(trip_id: str, user=Depends(get_current_user)):
-    await require_member(trip_id, user)
-    trip = await db.trips.find_one({"trip_id": trip_id}, {"_id": 0})
+async def compute_wrapped(trip):
+    trip_id = trip["trip_id"]
     exps = await db.expenses.find({"trip_id": trip_id}, {"_id": 0}).to_list(2000)
     media = await db.media.find({"trip_id": trip_id}, {"_id": 0}).to_list(2000)
     days = await db.itinerary_days.count_documents({"trip_id": trip_id})
@@ -1006,6 +1004,36 @@ async def trip_wrapped(trip_id: str, user=Depends(get_current_user)):
         "top_photographer": {"name": (await user_public(top_photographer[0]))["name"], "count": top_photographer[1]} if top_photographer else None,
         "most_reacted_photo": {"url": most_reacted["url"], "reactions": reaction_count(most_reacted)} if most_reacted and reaction_count(most_reacted) > 0 else None,
     }
+
+
+@api_router.get("/trips/{trip_id}/wrapped")
+async def trip_wrapped(trip_id: str, user=Depends(get_current_user)):
+    await require_member(trip_id, user)
+    trip = await db.trips.find_one({"trip_id": trip_id}, {"_id": 0})
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return await compute_wrapped(trip)
+
+
+@api_router.post("/trips/{trip_id}/wrapped/share")
+async def share_wrapped(trip_id: str, user=Depends(get_current_user)):
+    await require_member(trip_id, user)
+    trip = await db.trips.find_one({"trip_id": trip_id}, {"_id": 0})
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    token = trip.get("share_token")
+    if not token:
+        token = secrets.token_urlsafe(9)
+        await db.trips.update_one({"trip_id": trip_id}, {"$set": {"share_token": token}})
+    return {"share_token": token}
+
+
+@api_router.get("/public/wrapped/{share_token}")
+async def public_wrapped(share_token: str):
+    trip = await db.trips.find_one({"share_token": share_token}, {"_id": 0})
+    if not trip:
+        raise HTTPException(status_code=404, detail="This recap link is no longer available")
+    return await compute_wrapped(trip)
 
 
 @api_router.get("/")

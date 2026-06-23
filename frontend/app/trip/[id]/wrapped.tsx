@@ -1,156 +1,74 @@
-import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, Platform, Share } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, FadeIn } from "react-native-reanimated";
+import * as Clipboard from "expo-clipboard";
 import { api } from "@/src/lib/api";
 import { useTrip } from "@/src/context/TripContext";
+import { useToast } from "@/src/context/ToastContext";
+import { WrappedStory, Wrapped } from "@/src/components/WrappedStory";
 import { Loading } from "@/src/components/ui";
 import { colors, spacing, font, fontSize } from "@/src/theme";
-import { money } from "@/src/lib/format";
-
-const { width } = Dimensions.get("window");
-
-type Wrapped = {
-  trip_title: string;
-  destination: string;
-  total_spent: number;
-  currency: string;
-  num_days: number;
-  num_members: number;
-  num_photos: number;
-  num_expenses: number;
-  biggest_spender: { name: string; amount: number } | null;
-  most_expensive_day: { date: string; amount: number } | null;
-  top_category: { name: string; amount: number } | null;
-  top_photographer: { name: string; count: number } | null;
-  most_reacted_photo: { url: string; reactions: number } | null;
-};
-
-const GRADS: [string, string][] = [
-  ["#FF6B4A", "#EAB308"],
-  ["#8B5CF6", "#FF6B4A"],
-  ["#10B981", "#0EA5E9"],
-  ["#EAB308", "#EF4444"],
-  ["#FF6B4A", "#8B5CF6"],
-  ["#0F1115", "#FF6B4A"],
-];
 
 export default function WrappedScreen() {
-  const { tripId, trip } = useTrip();
+  const { tripId } = useTrip();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const toast = useToast();
   const [data, setData] = useState<Wrapped | null>(null);
-  const [idx, setIdx] = useState(0);
   const [loading, setLoading] = useState(true);
-  const progress = useSharedValue(0);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         const d = await api<Wrapped>(`/trips/${tripId}/wrapped`);
         setData(d);
-      } finally { setLoading(false); }
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [tripId]);
 
-  const slides = data ? buildSlides(data) : [];
-
-  useEffect(() => {
-    if (!slides.length) return;
-    progress.value = 0;
-    progress.value = withTiming(1, { duration: 4500 });
-    const t = setTimeout(() => {
-      if (idx < slides.length - 1) setIdx(idx + 1);
-    }, 4500);
-    return () => clearTimeout(t);
-  }, [idx, slides.length]);
-
-  const progStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
+  const share = async () => {
+    setSharing(true);
+    try {
+      const { share_token } = await api<{ share_token: string }>(`/trips/${tripId}/wrapped/share`, "POST");
+      const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/w/${share_token}`;
+      const message = `Check out our ${data?.trip_title} trip recap on RoamSync! ${url}`;
+      if (Platform.OS === "web") {
+        await Clipboard.setStringAsync(url);
+        toast.show("Recap link copied to clipboard!", "success");
+      } else {
+        await Share.share({ message, url });
+      }
+    } catch (e: any) {
+      toast.show(e.message || "Could not share", "error");
+    } finally {
+      setSharing(false);
+    }
+  };
 
   if (loading) return <View style={styles.container}><Loading /></View>;
-  if (!data || !slides.length) {
+
+  if (!data || data.num_expenses === 0 && data.num_photos === 0 && data.num_days === 0) {
     return (
       <View style={[styles.container, styles.center]}>
         <Ionicons name="sparkles" size={40} color={colors.brand} />
-        <Text style={styles.emptyText}>Not enough trip data yet.</Text>
-        <Pressable onPress={() => router.back()} style={styles.closeBtnAlt}><Text style={styles.closeText}>Close</Text></Pressable>
+        <Text style={styles.emptyText}>Add some plans, expenses or photos to unlock your Wrapped.</Text>
+        <Pressable onPress={() => router.back()} style={styles.closeBtn} testID="wrapped-empty-close">
+          <Text style={styles.closeText}>Close</Text>
+        </Pressable>
       </View>
     );
   }
 
-  const slide = slides[idx];
-  const grad = GRADS[idx % GRADS.length];
-
-  return (
-    <View style={styles.container}>
-      <LinearGradient colors={grad} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-      <View style={StyleSheet.absoluteFill}><View style={styles.darkScrim} /></View>
-
-      {/* progress bars */}
-      <View style={[styles.progressRow, { top: insets.top + spacing.sm }]}>
-        {slides.map((_, i) => (
-          <View key={i} style={styles.progressTrack}>
-            {i < idx && <View style={styles.progressFull} />}
-            {i === idx && <Animated.View style={[styles.progressFull, progStyle]} />}
-          </View>
-        ))}
-      </View>
-
-      <Pressable style={[styles.closeBtn, { top: insets.top + spacing.lg }]} onPress={() => router.back()} testID="wrapped-close">
-        <Ionicons name="close" size={26} color="#fff" />
-      </Pressable>
-
-      {/* tap zones */}
-      <Pressable style={styles.tapLeft} onPress={() => setIdx(Math.max(0, idx - 1))} testID="wrapped-prev" />
-      <Pressable style={styles.tapRight} onPress={() => setIdx(Math.min(slides.length - 1, idx + 1))} testID="wrapped-next" />
-
-      <Animated.View key={idx} entering={FadeIn.duration(400)} style={styles.slideContent} testID={`wrapped-slide-${idx}`}>
-        <Ionicons name={slide.icon as any} size={48} color="#fff" style={{ opacity: 0.9 }} />
-        <Text style={styles.kicker}>{slide.kicker}</Text>
-        <Text style={styles.bigValue}>{slide.value}</Text>
-        {slide.sub ? <Text style={styles.sub}>{slide.sub}</Text> : null}
-        {slide.image ? <Image source={{ uri: slide.image }} style={styles.photo} contentFit="cover" /> : null}
-      </Animated.View>
-
-      <Text style={[styles.brandFoot, { bottom: insets.bottom + spacing.lg }]}>RoamSync Wrapped</Text>
-    </View>
-  );
-}
-
-function buildSlides(d: Wrapped) {
-  const slides: { icon: string; kicker: string; value: string; sub?: string; image?: string }[] = [];
-  slides.push({ icon: "sparkles", kicker: `Your trip to ${d.destination}`, value: d.trip_title, sub: `${d.num_days} days · ${d.num_members} travelers` });
-  slides.push({ icon: "wallet", kicker: "Together you spent", value: money(d.total_spent, d.currency), sub: `across ${d.num_expenses} expenses` });
-  if (d.biggest_spender) slides.push({ icon: "trophy", kicker: "Biggest spender", value: d.biggest_spender.name, sub: money(d.biggest_spender.amount, d.currency) });
-  if (d.most_expensive_day) slides.push({ icon: "calendar", kicker: "Most expensive day", value: money(d.most_expensive_day.amount, d.currency), sub: d.most_expensive_day.date });
-  if (d.top_category) slides.push({ icon: "pie-chart", kicker: "You splurged most on", value: d.top_category.name, sub: money(d.top_category.amount, d.currency) });
-  if (d.top_photographer) slides.push({ icon: "camera", kicker: "Top photographer", value: d.top_photographer.name, sub: `${d.top_photographer.count} memories captured` });
-  if (d.most_reacted_photo) slides.push({ icon: "heart", kicker: "Most loved moment", value: `${d.most_reacted_photo.reactions} reactions`, image: d.most_reacted_photo.url });
-  slides.push({ icon: "checkmark-done-circle", kicker: "That's a wrap!", value: "What a journey 🌍", sub: "Until the next adventure." });
-  return slides;
+  return <WrappedStory data={data} onClose={() => router.back()} onShare={share} sharing={sharing} />;
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
-  center: { alignItems: "center", justifyContent: "center", gap: spacing.md },
-  darkScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(15,17,21,0.35)" },
-  emptyText: { color: "#fff", fontFamily: font.text, fontSize: fontSize.lg },
-  progressRow: { position: "absolute", left: spacing.md, right: spacing.md, flexDirection: "row", gap: 4, zIndex: 10 },
-  progressTrack: { flex: 1, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden" },
-  progressFull: { height: 3, borderRadius: 2, backgroundColor: "#fff", width: "100%" },
-  closeBtn: { position: "absolute", right: spacing.lg, zIndex: 11, width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  closeBtnAlt: { marginTop: spacing.lg, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: 12, backgroundColor: colors.surfaceTertiary },
+  center: { alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.xl },
+  emptyText: { color: "#fff", fontFamily: font.text, fontSize: fontSize.lg, textAlign: "center" },
+  closeBtn: { marginTop: spacing.lg, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: 12, backgroundColor: colors.surfaceTertiary },
   closeText: { color: "#fff", fontFamily: font.display, fontSize: fontSize.base, fontWeight: "500" },
-  tapLeft: { position: "absolute", left: 0, top: 0, bottom: 0, width: width * 0.3, zIndex: 5 },
-  tapRight: { position: "absolute", right: 0, top: 0, bottom: 0, width: width * 0.7, zIndex: 5 },
-  slideContent: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl, gap: spacing.md },
-  kicker: { color: "rgba(255,255,255,0.9)", fontFamily: font.text, fontSize: fontSize.lg, textAlign: "center", marginTop: spacing.lg },
-  bigValue: { color: "#fff", fontFamily: font.display, fontSize: 40, fontWeight: "500", textAlign: "center", lineHeight: 46 },
-  sub: { color: "rgba(255,255,255,0.85)", fontFamily: font.text, fontSize: fontSize.lg, textAlign: "center" },
-  photo: { width: 220, height: 220, borderRadius: 20, marginTop: spacing.lg, borderWidth: 3, borderColor: "rgba(255,255,255,0.5)" },
-  brandFoot: { position: "absolute", alignSelf: "center", color: "rgba(255,255,255,0.7)", fontFamily: font.display, fontSize: fontSize.base, fontWeight: "500", letterSpacing: 1 },
 });
