@@ -8,6 +8,7 @@ import { useTrip } from "@/src/context/TripContext";
 import { useToast } from "@/src/context/ToastContext";
 import { Sheet } from "@/src/components/Sheet";
 import { Button, Input, FAB, Loading, EmptyState, Chip } from "@/src/components/ui";
+import { pickImageFromLibrary } from "@/src/lib/media";
 import { colors, spacing, font, fontSize, radius, travelModeMeta } from "@/src/theme";
 import { fmtDate } from "@/src/lib/format";
 
@@ -107,6 +108,7 @@ export default function TravelTab() {
   const [paxSeat, setPaxSeat] = useState("");
   const [paxCoach, setPaxCoach] = useState("");
   const [pax, setPax] = useState<Passenger[]>([]);
+  const [scanning, setScanning] = useState(false);
   const toast = useToast();
   const insets = useSafeAreaInsets();
 
@@ -150,6 +152,31 @@ export default function TravelTab() {
     catch (e: any) { toast.show(e.message, "error"); }
   };
 
+  const scanTicket = async () => {
+    const img = await pickImageFromLibrary({ quality: 0.6 });
+    if (!img) return toast.show("Photo access needed to scan a ticket", "info");
+    setScanning(true);
+    try {
+      const res = await api<{ extracted: any }>(`/trips/${tripId}/travel/extract`, "POST", { file_base64: img.base64, mime: "image/jpeg" });
+      const d = res.extracted || {};
+      if (d.mode && ["flight", "train", "bus", "car"].includes(d.mode)) setMode(d.mode);
+      if (d.provider_name) setProvider(d.provider_name);
+      if (d.code) setCode(d.code);
+      if (d.origin) setOrigin(d.origin);
+      if (d.destination) setDestination(d.destination);
+      if (d.depart_time) setDepart(d.depart_time);
+      if (d.arrive_time) setArrive(d.arrive_time);
+      if (Array.isArray(d.passengers) && d.passengers.length) {
+        setPax(d.passengers.map((p: any) => ({ name: p.name || "Passenger", seat: p.seat || "", coach: p.coach || "", berth: p.berth || "", status: p.status || "Confirmed" })));
+      }
+      toast.show("Ticket scanned — review & save!", "success");
+    } catch (e: any) {
+      toast.show(e.message || "Could not read ticket", "error");
+    } finally {
+      setScanning(false);
+    }
+  };
+
   if (loading) return <Loading testID="travel-loading" />;
 
   return (
@@ -169,6 +196,13 @@ export default function TravelTab() {
       {canEdit && <FAB icon="add" onPress={() => setOpen(true)} testID="add-travel-fab" bottom={insets.bottom + 20} />}
 
       <Sheet visible={open} onClose={() => setOpen(false)} title="Add Travel" testID="travel-sheet">
+        <Pressable onPress={scanTicket} disabled={scanning} style={styles.scanBtn} testID="scan-ticket-btn">
+          {scanning ? <ActivityIndicator color={colors.brand} /> : <Ionicons name="scan-outline" size={20} color={colors.brand} />}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.scanText}>{scanning ? "Reading your ticket…" : "Scan ticket to auto-fill"}</Text>
+            <Text style={styles.scanHint}>Upload a photo or screenshot — AI fills the details & passengers.</Text>
+          </View>
+        </Pressable>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
           {(["flight", "train", "bus", "car"] as const).map((m) => (
             <Chip key={m} label={travelModeMeta[m].label} icon={travelModeMeta[m].icon} active={mode === m} onPress={() => setMode(m)} testID={`mode-${m}`} />
@@ -241,4 +275,11 @@ const styles = StyleSheet.create({
     flexDirection: "row", justifyContent: "space-between", backgroundColor: colors.surfaceSecondary,
     padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
   },
+  scanBtn: {
+    flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.lg,
+    borderRadius: radius.md, borderWidth: 1, borderStyle: "dashed", borderColor: colors.brand,
+    backgroundColor: colors.brandTertiary,
+  },
+  scanText: { color: colors.brand, fontFamily: font.display, fontSize: fontSize.base, fontWeight: "500" },
+  scanHint: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: fontSize.sm, marginTop: 1 },
 });

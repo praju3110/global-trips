@@ -1,24 +1,25 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { getToken } from "@/src/lib/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/lib/api";
 import { useTrip } from "@/src/context/TripContext";
 import { useToast } from "@/src/context/ToastContext";
 import { useAuth } from "@/src/context/AuthContext";
 import { GlassHeader } from "@/src/components/GlassHeader";
-import { Avatar, Button, Card, Chip, Pill } from "@/src/components/ui";
+import { Avatar, Button, Card, Chip, Pill, Input } from "@/src/components/ui";
 import { Sheet } from "@/src/components/Sheet";
-import { Input } from "@/src/components/ui";
 import { colors, spacing, font, fontSize, radius } from "@/src/theme";
 
 const ROLES = ["admin", "member", "viewer"] as const;
 const PROVIDERS = [
   { key: "gdrive", label: "Google Drive", icon: "logo-google" },
   { key: "onedrive", label: "OneDrive", icon: "cloud-outline" },
-  { key: "icloud", label: "iCloud", icon: "logo-apple" },
 ];
 
 export default function Settings() {
@@ -29,9 +30,30 @@ export default function Settings() {
   const insets = useSafeAreaInsets();
 
   const [storageOpen, setStorageOpen] = useState(false);
-  const [provider, setProvider] = useState(trip?.storage_provider?.provider || "gdrive");
-  const [accountLabel, setAccountLabel] = useState(trip?.storage_provider?.account_label || "");
   const [headOpen, setHeadOpen] = useState<string | null>(null);
+  const [byosProviders, setByosProviders] = useState<{ key: string; label: string; configured: boolean }[]>([]);
+  const [connecting, setConnecting] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState("member");
+  const [adding, setAdding] = useState(false);
+  const params = useLocalSearchParams<{ byos?: string; message?: string }>();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/byos/config`);
+        const data = await res.json();
+        setByosProviders(data.providers || []);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (params.byos === "success") { toast.show("Cloud storage connected!", "success"); refresh(); }
+    else if (params.byos === "error") { toast.show(`Connection failed: ${params.message || "try again"}`, "error"); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.byos]);
 
   const copyCode = async () => {
     if (!trip) return;
@@ -54,13 +76,50 @@ export default function Settings() {
     catch (e: any) { toast.show(e.message, "error"); }
   };
 
-  const saveStorage = async () => {
-    if (!accountLabel.trim()) return toast.show("Account label required", "error");
+  const connect = async (provider: string) => {
+    setConnecting(provider);
     try {
-      await api(`/trips/${tripId}/storage`, "PUT", { provider, account_label: accountLabel.trim() });
-      setStorageOpen(false); refresh();
-      toast.show("Storage configured", "success");
-    } catch (e: any) { toast.show(e.message, "error"); }
+      const token = await getToken();
+      const base = process.env.EXPO_PUBLIC_BACKEND_URL;
+      if (Platform.OS === "web") {
+        const redirect = `${base}/trip/${tripId}/settings`;
+        const url = `${base}/api/byos/${provider}/start?trip_id=${tripId}&token=${token}&client_redirect=${encodeURIComponent(redirect)}`;
+        // @ts-ignore
+        window.location.href = url;
+      } else {
+        const redirect = Linking.createURL(`/trip/${tripId}/settings`);
+        const url = `${base}/api/byos/${provider}/start?trip_id=${tripId}&token=${token}&client_redirect=${encodeURIComponent(redirect)}`;
+        const result = await WebBrowser.openAuthSessionAsync(url, redirect);
+        if (result.type === "success" && result.url.includes("byos=success")) {
+          setStorageOpen(false); refresh(); toast.show("Cloud storage connected!", "success");
+        } else if (result.type === "success") {
+          toast.show("Connection was not completed", "error");
+        }
+      }
+    } catch (e: any) {
+      toast.show("Could not start connection", "error");
+    } finally {
+      setConnecting(null);
+    }
+  };
+
+  const disconnectStorage = async () => {
+    try { await api(`/trips/${tripId}/storage`, "DELETE"); refresh(); toast.show("Storage disconnected", "info"); }
+    catch (e: any) { toast.show(e.message, "error"); }
+  };
+
+  const addMember = async () => {
+    if (!addEmail.trim()) return toast.show("Enter an email", "error");
+    setAdding(true);
+    try {
+      await api(`/trips/${tripId}/members/add`, "POST", { email: addEmail.trim(), role: addRole });
+      setAddOpen(false); setAddEmail(""); setAddRole("member"); refresh();
+      toast.show("Member added!", "success");
+    } catch (e: any) {
+      toast.show(e.message || "Could not add member", "error");
+    } finally {
+      setAdding(false);
+    }
   };
 
   const deleteTrip = async () => {
@@ -86,7 +145,15 @@ export default function Settings() {
 
         {/* Members */}
         <View style={{ gap: spacing.md }}>
-          <Text style={styles.section}>Members ({members.length})</Text>
+          <View style={styles.membersHead}>
+            <Text style={styles.section}>Members ({members.length})</Text>
+            {isAdmin && (
+              <Pressable onPress={() => setAddOpen(true)} style={styles.addBtn} testID="add-member-btn">
+                <Ionicons name="person-add" size={16} color={colors.brand} />
+                <Text style={styles.addBtnText}>Add</Text>
+              </Pressable>
+            )}
+          </View>
           {members.map((m) => (
             <Card key={m.user_id} style={{ gap: spacing.md }} testID={`member-${m.user_id}`}>
               <View style={styles.memberRow}>
@@ -123,15 +190,26 @@ export default function Settings() {
         {/* Storage */}
         <Card style={{ gap: spacing.md }}>
           <Text style={styles.section}>Media Storage (BYOS)</Text>
-          {trip?.storage_provider ? (
-            <View style={styles.storageActive}>
-              <Ionicons name="cloud-done" size={20} color={colors.success} />
-              <Text style={styles.storageActiveText}>{PROVIDERS.find((p) => p.key === trip.storage_provider?.provider)?.label} · {trip.storage_provider.account_label}</Text>
-            </View>
+          {trip?.storage_provider?.connected ? (
+            <>
+              <View style={styles.storageActive}>
+                <Ionicons name="cloud-done" size={20} color={colors.success} />
+                <Text style={styles.storageActiveText}>{PROVIDERS.find((p) => p.key === trip.storage_provider?.provider)?.label} · {trip.storage_provider.account_label}</Text>
+              </View>
+              <Text style={styles.hint}>Members' photos & videos upload directly into your {PROVIDERS.find((p) => p.key === trip.storage_provider?.provider)?.label}. We only store references.</Text>
+              {isAdmin && (
+                <View style={{ flexDirection: "row", gap: spacing.md }}>
+                  <Button title="Change" variant="secondary" icon="swap-horizontal" onPress={() => setStorageOpen(true)} style={{ flex: 1 }} testID="change-storage-btn" />
+                  <Button title="Disconnect" variant="danger" icon="cloud-offline-outline" onPress={disconnectStorage} style={{ flex: 1 }} testID="disconnect-storage-btn" />
+                </View>
+              )}
+            </>
           ) : (
-            <Text style={styles.hint}>Connect a cloud account so members upload trip media to your storage.</Text>
+            <>
+              <Text style={styles.hint}>Connect your Google Drive or OneDrive so trip members upload media directly to your cloud — we only keep references.</Text>
+              {isAdmin && <Button title="Connect Cloud Storage" variant="secondary" icon="cloud-upload-outline" onPress={() => setStorageOpen(true)} testID="config-storage-btn" />}
+            </>
           )}
-          {isAdmin && <Button title={trip?.storage_provider ? "Reconfigure" : "Connect Storage"} variant="secondary" icon="cloud-upload-outline" onPress={() => setStorageOpen(true)} testID="config-storage-btn" />}
         </Card>
 
         {isAdmin && (
@@ -139,20 +217,42 @@ export default function Settings() {
         )}
       </ScrollView>
 
-      {/* Storage Sheet */}
-      <Sheet visible={storageOpen} onClose={() => setStorageOpen(false)} title="Connect Storage" testID="storage-sheet">
-        <Text style={styles.hint}>Choose a provider and label the account. Members' uploads will reference this storage.</Text>
-        <View style={{ gap: spacing.sm }}>
-          {PROVIDERS.map((p) => (
-            <Pressable key={p.key} onPress={() => setProvider(p.key)} style={[styles.provRow, provider === p.key && styles.provActive]} testID={`prov-${p.key}`}>
-              <Ionicons name={p.icon as any} size={20} color={provider === p.key ? colors.brand : colors.onSurface} />
-              <Text style={styles.provText}>{p.label}</Text>
-              {provider === p.key && <Ionicons name="checkmark-circle" size={20} color={colors.brand} />}
-            </Pressable>
-          ))}
+      {/* Add Member Sheet */}
+      <Sheet visible={addOpen} onClose={() => setAddOpen(false)} title="Add Member" testID="add-member-sheet">
+        <Text style={styles.hint}>Add an existing RoamSync user by their email. They'll join instantly with the role you pick. (If they're not signed up yet, share the invite code instead.)</Text>
+        <Input label="Email" placeholder="friend@email.com" autoCapitalize="none" keyboardType="email-address" value={addEmail} onChangeText={setAddEmail} testID="add-email-input" />
+        <View>
+          <Text style={styles.addLabel}>Role</Text>
+          <View style={styles.roleRow}>
+            {ROLES.map((r) => (
+              <Chip key={r} label={r[0].toUpperCase() + r.slice(1)} active={addRole === r} onPress={() => setAddRole(r)} testID={`add-role-${r}`} />
+            ))}
+          </View>
         </View>
-        <Input label="Account Label" placeholder="trips@gmail.com" value={accountLabel} onChangeText={setAccountLabel} testID="account-label-input" />
-        <Button title="Save" onPress={saveStorage} testID="save-storage" />
+        <Button title="Add Member" onPress={addMember} loading={adding} testID="confirm-add-member" />
+      </Sheet>
+
+      {/* Storage Sheet */}
+      <Sheet visible={storageOpen} onClose={() => setStorageOpen(false)} title="Connect Cloud Storage" testID="storage-sheet">
+        <Text style={styles.hint}>Choose where this trip's photos & videos live. You'll sign in to your account; members then upload straight into your cloud.</Text>
+        {byosProviders.length > 0 && byosProviders.every((p) => !p.configured) && (
+          <View style={styles.warnBox}>
+            <Ionicons name="warning-outline" size={16} color={colors.warning} />
+            <Text style={styles.warnText}>No providers are set up on the server yet. Add the Google/OneDrive API keys to enable real uploads.</Text>
+          </View>
+        )}
+        <View style={{ gap: spacing.sm }}>
+          {byosProviders.map((p) => {
+            const meta = PROVIDERS.find((x) => x.key === p.key);
+            return (
+              <Pressable key={p.key} disabled={!p.configured || connecting !== null} onPress={() => connect(p.key)} style={[styles.provRow, !p.configured && { opacity: 0.5 }]} testID={`connect-${p.key}`}>
+                <Ionicons name={(meta?.icon || "cloud-outline") as any} size={20} color={colors.onSurface} />
+                <Text style={styles.provText}>{meta?.label || p.label}</Text>
+                {connecting === p.key ? <ActivityIndicator color={colors.brand} /> : p.configured ? <Ionicons name="chevron-forward" size={20} color={colors.muted} /> : <Text style={styles.notSet}>Not set up</Text>}
+              </Pressable>
+            );
+          })}
+        </View>
       </Sheet>
 
       {/* Family Head Sheet */}
@@ -190,4 +290,11 @@ const styles = StyleSheet.create({
   provRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
   provActive: { borderColor: colors.brand, backgroundColor: colors.brandTertiary },
   provText: { color: colors.onSurface, fontFamily: font.text, fontSize: fontSize.base, flex: 1, fontWeight: "500" },
+  notSet: { color: colors.muted, fontFamily: font.text, fontSize: fontSize.sm },
+  warnBox: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start", backgroundColor: colors.warning + "1A", borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.warning + "44" },
+  warnText: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: fontSize.sm, flex: 1, lineHeight: 18 },
+  membersHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  addBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
+  addBtnText: { color: colors.brand, fontFamily: font.text, fontSize: fontSize.sm, fontWeight: "500" },
+  addLabel: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: fontSize.base, marginBottom: spacing.sm },
 });

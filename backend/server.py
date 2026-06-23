@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import json
+import re
 import logging
 import secrets
 import string
@@ -14,6 +16,7 @@ from datetime import datetime, timezone, timedelta
 import jwt
 import bcrypt
 import httpx
+import byos
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -333,6 +336,14 @@ def trip_status(trip: Dict[str, Any]) -> str:
 
 async def enrich_trip(trip: Dict[str, Any]) -> Dict[str, Any]:
     trip = {k: v for k, v in trip.items() if k != "_id"}
+    sp = trip.get("storage_provider")
+    if isinstance(sp, dict):
+        trip["storage_provider"] = {
+            "provider": sp.get("provider"),
+            "account_label": sp.get("account_label"),
+            "connected": bool(sp.get("connected")),
+            "connected_at": sp.get("connected_at"),
+        }
     trip["status"] = trip_status(trip)
     trip["member_count"] = await db.memberships.count_documents({"trip_id": trip["trip_id"]})
     return trip
@@ -423,6 +434,13 @@ async def set_storage(trip_id: str, body: StorageIn, user=Depends(get_current_us
     return {"trip": await enrich_trip(trip)}
 
 
+@api_router.delete("/trips/{trip_id}/storage")
+async def disconnect_storage(trip_id: str, user=Depends(get_current_user)):
+    await require_member(trip_id, user, "admin")
+    await db.trips.update_one({"trip_id": trip_id}, {"$set": {"storage_provider": None}})
+    return {"ok": True}
+
+
 @api_router.post("/trips/join")
 async def join_trip(body: JoinIn, user=Depends(get_current_user)):
     trip = await db.trips.find_one({"invite_code": body.invite_code.upper()}, {"_id": 0})
@@ -455,6 +473,32 @@ async def list_members(trip_id: str, user=Depends(get_current_user)):
         pub = await user_public(m["user_id"])
         out.append({**m, **pub})
     return {"members": out}
+
+
+class AddMemberIn(BaseModel):
+    email: EmailStr
+    role: str = "member"
+
+
+@api_router.post("/trips/{trip_id}/members/add")
+async def add_member_by_email(trip_id: str, body: AddMemberIn, user=Depends(get_current_user)):
+    await require_member(trip_id, user, "admin")
+    target = await db.users.find_one({"email": body.email.lower()}, {"_id": 0, "password_hash": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="No RoamSync user with that email. Share the invite code instead.")
+    existing = await get_membership(trip_id, target["user_id"])
+    if existing:
+        raise HTTPException(status_code=400, detail="This person is already a member")
+    role = body.role if body.role in ("admin", "member", "viewer") else "member"
+    await db.memberships.insert_one({
+        "membership_id": new_id("mem"),
+        "trip_id": trip_id,
+        "user_id": target["user_id"],
+        "role": role,
+        "family_head_id": None,
+        "joined_at": now_utc().isoformat(),
+    })
+    return {"ok": True, "member": {**await user_public(target["user_id"]), "role": role}}
 
 
 @api_router.put("/trips/{trip_id}/members/{member_user_id}")
@@ -570,6 +614,70 @@ async def delete_travel(trip_id: str, segment_id: str, user=Depends(get_current_
     await require_member(trip_id, user, "member")
     await db.travel_segments.delete_one({"trip_id": trip_id, "segment_id": segment_id})
     return {"ok": True}
+
+
+class ExtractIn(BaseModel):
+    file_base64: str
+    mime: str = "image/jpeg"
+
+
+EXTRACT_PROMPT = (
+    "You are a travel ticket parser. Read this ticket (flight/train/bus/car) and extract its details. "
+    "Return ONLY valid minified JSON (no markdown, no commentary) with EXACTLY this shape: "
+    '{"mode":"flight|train|bus|car","provider_name":"","code":"","origin":"","destination":"",'
+    '"depart_time":"","arrive_time":"","passengers":[{"name":"","coach":"","seat":"","berth":"","status":"Confirmed"}]}. '
+    "Use an empty string for any unknown field. Format depart_time/arrive_time as 'YYYY-MM-DD HH:MM' when present, else ''. "
+    "origin/destination should be the station/airport/city names or codes. Infer mode from context."
+)
+
+
+@api_router.post("/trips/{trip_id}/travel/extract")
+async def extract_ticket(trip_id: str, body: ExtractIn, user=Depends(get_current_user)):
+    await require_member(trip_id, user, "member")
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(status_code=400, detail="AI extraction is not configured")
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent, FileContentWithMimeType
+    raw = body.file_base64.split(",", 1)[-1] if body.file_base64.startswith("data:") else body.file_base64
+    chat = LlmChat(api_key=key, session_id=f"ticket-{uuid.uuid4().hex}",
+                   system_message="You extract structured travel ticket data and reply with pure JSON.")
+    tmp_path = None
+    try:
+        if body.mime == "application/pdf":
+            chat.with_model("gemini", "gemini-2.5-flash")
+            import base64 as _b64
+            tmp_path = f"/tmp/{uuid.uuid4().hex}.pdf"
+            with open(tmp_path, "wb") as f:
+                f.write(_b64.b64decode(raw))
+            content = FileContentWithMimeType(file_path=tmp_path, mime_type="application/pdf")
+        else:
+            chat.with_model("openai", "gpt-4o")
+            content = ImageContent(image_base64=raw)
+        msg = UserMessage(text=EXTRACT_PROMPT, file_contents=[content])
+        resp = await chat.send_message(msg)
+        text = resp if isinstance(resp, str) else getattr(resp, "content", str(resp))
+        cleaned = text.strip()
+        cleaned = re.sub(r"^```(?:json)?", "", cleaned).strip()
+        cleaned = re.sub(r"```$", "", cleaned).strip()
+        try:
+            data = json.loads(cleaned)
+        except Exception:
+            m = re.search(r"\{.*\}", cleaned, re.DOTALL)
+            if not m:
+                raise HTTPException(status_code=422, detail="Could not read this ticket. Try a clearer image.")
+            data = json.loads(m.group(0))
+        return {"extracted": data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Ticket extraction failed: {e}")
+        raise HTTPException(status_code=502, detail="Extraction failed. Please enter details manually.")
+    finally:
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 
 # ----------------------------- Expenses -----------------------------
@@ -820,16 +928,30 @@ async def get_media(trip_id: str, folder_id: Optional[str] = None, uploader_id: 
 async def add_media(trip_id: str, body: MediaIn, user=Depends(get_current_user)):
     await require_member(trip_id, user, "member")
     trip = await db.trips.find_one({"trip_id": trip_id}, {"_id": 0})
+    url = body.url
+    provider_file_id = None
+    storage_provider_name = None
+    sp = (trip or {}).get("storage_provider") or {}
+    if sp.get("connected"):
+        storage_provider_name = sp.get("provider")
+        try:
+            result = await byos.upload_media_if_byos(trip, body.url, body.type)
+            if result:
+                url = result["url"]
+                provider_file_id = result["provider_file_id"]
+        except Exception as e:
+            logger.warning(f"BYOS upload failed, storing locally: {e}")
     doc = {
         "media_id": new_id("med"),
         "trip_id": trip_id,
         "folder_id": body.folder_id,
         "uploader_id": user["user_id"],
         "type": body.type,
-        "url": body.url,
+        "url": url,
         "caption": body.caption,
         "reactions": {},
-        "storage_provider": (trip.get("storage_provider") or {}).get("provider") if trip else None,
+        "storage_provider": storage_provider_name,
+        "provider_file_id": provider_file_id,
         "created_at": now_utc().isoformat(),
     }
     await db.media.insert_one(doc)
@@ -1042,6 +1164,7 @@ async def root():
 
 
 app.include_router(api_router)
+app.include_router(byos.router)
 
 app.add_middleware(
     CORSMiddleware,

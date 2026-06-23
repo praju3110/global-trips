@@ -1,0 +1,52 @@
+{
+  "summary": "Backend-only testing for RoamSync iteration-2 features (BYOS storage, add-member-by-email, AI ticket extraction). Created /app/backend/tests/test_new_features.py with 12 focused tests; all 12 PASSED. Re-ran existing regression suite (/app/backend/tests/test_roamsync_api.py) — 25/25 still PASS. Combined: 37/37 (100%).",
+  "feature_results": {
+    "byos_config": "PASS — /api/byos/config returns both providers gdrive & onedrive with configured:false (placeholder env keys), labels 'Google Drive' / 'OneDrive'.",
+    "byos_start_no_500": "PASS — /api/byos/gdrive/start with valid JWT but unconfigured provider returns 400 ('Google Drive is not configured on the server'). Invalid token returns 400 (because configured-check runs before token decode). Unknown provider → 404. Never 500.",
+    "disconnect_storage": "PASS — DELETE /api/trips/{id}/storage: admin → 200 {ok:true} and storage_provider cleared (verified via GET trip); viewer → 403; non-member → 403.",
+    "add_member_by_email": "PASS — POST /api/trips/{id}/members/add: admin adds existing user's email → 200, member shows up with given role (verified via GET /members); duplicate add → 400 ('already a member'); unknown email → 404; non-admin (member) → 403.",
+    "ticket_extraction_ai": "PASS — POST /api/trips/{id}/travel/extract with synthetic JPEG boarding pass (INDIGO, 6E-235, FROM DEL → TO BOM, JOHN DOE, seat 14C, 2026-03-12) returned 200 with extracted.mode='flight' and origin/destination/provider_name/code populated. EMERGENT_LLM_KEY + gpt-4o pipeline working end-to-end.",
+    "media_regression_no_byos": "PASS — POST /api/trips/{id}/media without BYOS connected stores the original data:image/... base64 url unchanged; storage_provider=null, provider_file_id=null.",
+    "general_regression": "PASS — GET trip, GET/POST itinerary, POST expense, GET expenses, GET summary all return 200."
+  },
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/byos/{provider}/start",
+        "issue": "Order of checks: provider_configured runs BEFORE jwt validation, so an invalid token still gets 400 (not configured) instead of 401. Works fine while keys are placeholders, but once real keys are added, invalid tokens will return 401 — frontends should not assume the error code."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_new_features.py",
+    "/app/backend/tests/test_roamsync_api.py",
+    "/app/test_reports/pytest/pytest_results_iter2.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "byos.py /start: provider_configured() is checked before jwt.decode(token). When keys land in env, an attacker probing endpoints will get 401 instead of 400. Acceptable, but documented above.",
+    "byos.py _parse_data_uri: regex fallback path computes base64.b64decode in the ternary expression even when not a data URI — minor style issue; works.",
+    "server.py add_member_by_email silently coerces unknown roles to 'member'. Consider 422 for invalid role values to surface client bugs.",
+    "extract_ticket cleans markdown fences with re.sub but uses MULTILINE-less ^/$ — for ```json prefix it works because of strip(); fine. Returns 502 on generic LlmChat failures (good).",
+    "server.py still 1188 lines — would benefit from splitting into routers, especially now that BYOS lives in a separate module."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_new_features.py (created)"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 new + 25/25 regression = 37/37)",
+    "frontend": "not tested (backend-only request)"
+  },
+  "seed_data_creation": "Each run registers 3 fresh users (test_admin2_*, test_friend2_*, test_viewer2_*) and creates 1 trip 'TEST_BYOS_Trip' which is deleted in fixture teardown. Test users remain in DB (unique uuid suffix, easily identifiable by 'test_' prefix).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use EXPO_PUBLIC_BACKEND_URL from /app/frontend/.env. /api/byos/config is UNAUTHENTICATED (router doesn't depend on get_current_user). /api/byos/{provider}/start takes token via query param (?token=...) not Authorization header — it's a redirect endpoint designed for browser navigation. EMERGENT_LLM_KEY in backend/.env is valid and gpt-4o ticket extraction works on synthetic JPEG (PIL-generated boarding pass with DejaVu fonts at /usr/share/fonts/truetype/dejavu/). For BYOS OAuth full round-trip you'd need real GOOGLE_CLIENT_ID/SECRET and MS_CLIENT_ID/SECRET in backend/.env — currently empty so configured=false. Add-member-by-email: backend lowercases email before lookup, returns 400 if duplicate / 404 if no RoamSync user / 403 if caller isn't admin.",
+  "rca_of_issue": "N/A — no bugs found. All three new features (BYOS, add-by-email, AI extraction) work correctly. Regression on existing media/itinerary/expense flows is clean."
+}
