@@ -38,6 +38,17 @@ Global collaborative Trip Management app (Solo/Group/Family travel). Auth + onbo
 - P2: Ticket PDF parsing/passenger auto-extraction, push to settle reminders, trip cover from camera.
 - P2: Real-time collaboration sync, day-level itinerary activities/sub-items.
 
+## Implemented (2026-06-23) — Iteration 2
+- **BYOS true cloud upload** (`byos.py`): admin connects Google Drive / OneDrive via OAuth 2.0; encrypted refresh token stored per trip (Fernet); members' media upload into admin's cloud, only references kept. iCloud dropped (no public API). Provider keys are placeholders — set GOOGLE_CLIENT_ID/SECRET & MS_CLIENT_ID/SECRET in backend/.env + add redirect URI to enable. Graceful "Not set up" UI until then. ✅
+- **Add members by email**: admin can add an existing RoamSync user directly with a role (`POST /trips/{id}/members/add`), alongside invite codes. ✅
+- **AI ticket extraction**: `POST /trips/{id}/travel/extract` parses a ticket image (gpt-4o) or PDF (gemini-2.5-flash) via EMERGENT_LLM_KEY into structured segment + passengers; "Scan ticket to auto-fill" button in Travel tab. ✅
+- Backend tested: 37/37 passing (iteration_2). All regressions green.
+
+## Backlog / Next
+- P1: Provide Google/Microsoft OAuth keys to activate BYOS uploads end-to-end (infra is ready & plug-and-play).
+- P1: Phone OTP login (SMS keys). PDF ticket scan on frontend (currently image scan; API supports PDF).
+- P2: "Save Wrapped slide as image" export; Open Graph preview for shared recap links.
+
 ## Notes / Mocked
-- BYOS cloud upload is configuration-only (media stored as base64 reference in MongoDB); real Drive/OneDrive/iCloud upload requires OAuth setup (deferred per user MVP scope).
-- Google login not testable via automation (needs real Google session); verified working in live web preview.
+- BYOS OAuth round-trip not yet live (placeholder provider keys); config/start/disconnect verified, no real cloud calls until keys added.
+- iCloud Drive intentionally unsupported (Apple has no public third-party Drive upload API).
