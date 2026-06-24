@@ -28,8 +28,6 @@ steps:
       - 'managed'
       - '--allow-unauthenticated'
       - '--session-affinity'  # Pin WebSocket connections to instances
-      - '--set-env-vars'
-      - 'MONGO_URL=mongodb+srv://patilbhushan2014_db_user:mLBctfoBchTChCYG@patal-patil-family.qphi4oa.mongodb.net/?appName=patal-patil-family,DB_NAME=roamsync_db,JWT_SECRET=test_jwt_secret_12345_roamsync,GCS_BUCKET_NAME=roam-sync-media,BYOS_FERNET_KEY=g-M4w9B1D61o4m6y0T69t63M69o6b6i6l6e7B6u7s6h8=,GEMINI_API_KEY=AIzaSyDnt-uZXSPiptEvl7CjuyOs61a3TCcqNV8'
 
 images:
   - 'gcr.io/$PROJECT_ID/roamsync-backend:latest'
