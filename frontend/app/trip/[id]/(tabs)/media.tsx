@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
 import { Image } from "expo-image";
@@ -11,7 +12,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { Sheet } from "@/src/components/Sheet";
 import { FAB, Loading, EmptyState, Chip, Avatar, Button, Input } from "@/src/components/ui";
 import { pickImageFromLibrary } from "@/src/lib/media";
-import { colors, spacing, font, fontSize, radius } from "@/src/theme";
+import { spacing, font, fontSize, radius , createStyles } from "@/src/theme";
 
 const EMOJIS = ["❤️", "😍", "🔥", "😂", "👏"];
 
@@ -28,6 +29,8 @@ type Media = {
 type Folder = { folder_id: string; name: string };
 
 export default function MediaTab() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { tripId, canEdit, members, trip } = useTrip();
   const { user } = useAuth();
   const [media, setMedia] = useState<Media[]>([]);
@@ -199,7 +202,8 @@ export default function MediaTab() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   container: { flex: 1, backgroundColor: colors.surface },
   storageBanner: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", paddingVertical: spacing.sm, backgroundColor: colors.surfaceSecondary },
   storageText: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: fontSize.sm },
@@ -222,4 +226,4 @@ const styles = StyleSheet.create({
   emojiNum: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: 10 },
   uploadPreview: { width: "100%", height: 200, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary },
   label: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: fontSize.base, marginBottom: spacing.sm },
-});
+}));

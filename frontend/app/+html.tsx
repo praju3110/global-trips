@@ -24,6 +24,21 @@ export default function Root({ children }: PropsWithChildren) {
               body > div:first-child { position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; }
               [role="tablist"] [role="tab"] * { overflow: visible !important; }
               [role="heading"], [role="heading"] * { overflow: visible !important; }
+              
+              /* Premium web-only enhancements */
+              [role="button"], [role="link"], button, a, [onClick] { cursor: pointer !important; user-select: none; }
+              
+              /* Custom scrollbars — driven by theme CSS variables */
+              ::-webkit-scrollbar { width: 6px; height: 6px; }
+              ::-webkit-scrollbar-track { background: var(--color-surface, #0F1115); }
+              ::-webkit-scrollbar-thumb { background: var(--color-border, #272B36); border-radius: 4px; }
+              ::-webkit-scrollbar-thumb:hover { background: var(--color-brand, #FF6B4A); opacity: 0.5; }
+              
+              body {
+                background-color: var(--color-surfaceWrapper, #0A0C10) !important;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+              }
             `,
           }}
         />

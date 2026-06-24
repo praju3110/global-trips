@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Platform, Share } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -5,11 +6,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { WrappedStory, Wrapped } from "@/src/components/WrappedStory";
 import { Loading } from "@/src/components/ui";
-import { colors, spacing, font, fontSize } from "@/src/theme";
+import { spacing, font, fontSize , createStyles } from "@/src/theme";
 
 const BASE = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function PublicWrapped() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { token } = useLocalSearchParams<{ token: string }>();
   const router = useRouter();
   const [data, setData] = useState<Wrapped | null>(null);
@@ -59,11 +62,12 @@ export default function PublicWrapped() {
   return <WrappedStory data={data} onClose={goHome} onShare={share} />;
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   container: { flex: 1, backgroundColor: colors.surface },
   center: { alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.xl },
   title: { color: colors.onSurface, fontFamily: font.display, fontSize: fontSize.xl, fontWeight: "500" },
   sub: { color: colors.muted, fontFamily: font.text, fontSize: fontSize.base, textAlign: "center" },
   btn: { marginTop: spacing.lg, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: 12, backgroundColor: colors.brand },
   btnText: { color: "#fff", fontFamily: font.display, fontSize: fontSize.base, fontWeight: "500" },
-});
+}));

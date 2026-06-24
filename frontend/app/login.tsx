@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState } from "react";
 import {
   View,
@@ -16,12 +17,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/src/context/AuthContext";
 import { useToast } from "@/src/context/ToastContext";
 import { Button, Input } from "@/src/components/ui";
-import { colors, spacing, font, fontSize, radius } from "@/src/theme";
+import { spacing, font, fontSize, radius , createStyles } from "@/src/theme";
 
 const BG =
   "https://images.unsplash.com/photo-1768406091207-222997cd6584?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwyfHxiZWF1dGlmdWwlMjB0cmF2ZWwlMjBkZXN0aW5hdGlvbiUyMGhlcm8lMjBpbWFnZXxlbnwwfHx8fDE3ODIxNTM1NDl8MA&ixlib=rb-4.1.0&q=85";
 
 export default function Login() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -151,7 +154,8 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   bg: { flex: 1, backgroundColor: colors.surface },
   scroll: { flexGrow: 1, paddingHorizontal: spacing.xl, justifyContent: "flex-end" },
   brandRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.md },
@@ -166,7 +170,7 @@ const styles = StyleSheet.create({
   brandName: { color: colors.onSurface, fontFamily: font.display, fontSize: 30, fontWeight: "500" },
   tagline: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: fontSize.lg, marginBottom: spacing.xl },
   card: {
-    backgroundColor: colors.surfaceSecondary + "F2",
+    backgroundColor: colors.surfaceSecondaryStrong,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.border,
@@ -192,4 +196,4 @@ const styles = StyleSheet.create({
   toggle: { alignItems: "center", marginTop: spacing.xl },
   toggleText: { color: colors.muted, fontFamily: font.text, fontSize: fontSize.base },
   toggleLink: { color: colors.brand, fontWeight: "500" },
-});
+}));

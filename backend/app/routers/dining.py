@@ -122,13 +122,19 @@ async def dining_split(trip_id: str, session_id: str, user=Depends(get_current_u
     total = subtotal + tax + tip
     # distribute tax+tip proportionally
     extras = tax + tip
+    
+    # Batch fetch participant names in 1 query
     breakdown = []
+    user_ids = list(per_user.keys())
+    users = await db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(len(user_ids)) if user_ids else []
+    user_map = {u["user_id"]: u for u in users}
+    
     for u, food in per_user.items():
         prop = (food / subtotal) if subtotal else 0
         share_extra = extras * prop
         breakdown.append({
             "user_id": u,
-            "name": (await user_public(u))["name"],
+            "name": (user_map.get(u) or {}).get("name") or "Unknown",
             "food": round(food, 2),
             "extras": round(share_extra, 2),
             "total": round(food + share_extra, 2),

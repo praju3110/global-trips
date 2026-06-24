@@ -1,7 +1,8 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { createContext, useContext, useState, useCallback, useRef } from "react";
 import { StyleSheet, Text, Animated, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing, font } from "@/src/theme";
+import { radius, spacing, font , createStyles } from "@/src/theme";
 
 type ToastType = "success" | "error" | "info";
 type Toast = { id: number; message: string; type: ToastType };
@@ -13,6 +14,8 @@ const ToastContext = createContext<{ show: (m: string, t?: ToastType) => void }>
 export const useToast = () => useContext(ToastContext);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const [toast, setToast] = useState<Toast | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const timer = useRef<any>(null);
@@ -59,7 +62,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   wrap: {
     position: "absolute",
     top: 60,
@@ -80,4 +84,4 @@ const styles = StyleSheet.create({
     maxWidth: 480,
   },
   text: { color: colors.onSurface, fontFamily: font.text, fontSize: 14, flexShrink: 1 },
-});
+}));

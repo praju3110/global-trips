@@ -64,7 +64,7 @@ def trip_status(trip: Dict[str, Any]) -> str:
         return "upcoming"
 
 
-async def enrich_trip(trip: Dict[str, Any]) -> Dict[str, Any]:
+async def enrich_trip(trip: Dict[str, Any], member_count: int = 1) -> Dict[str, Any]:
     trip = {k: v for k, v in trip.items() if k != "_id"}
     sp = trip.get("storage_provider")
     if isinstance(sp, dict):
@@ -75,7 +75,7 @@ async def enrich_trip(trip: Dict[str, Any]) -> Dict[str, Any]:
             "connected_at": sp.get("connected_at"),
         }
     trip["status"] = trip_status(trip)
-    trip["member_count"] = await db.memberships.count_documents({"trip_id": trip["trip_id"]})
+    trip["member_count"] = member_count
     return trip
 
 
@@ -86,9 +86,17 @@ async def list_trips(user=Depends(get_current_user)):
     trip_ids = [m["trip_id"] for m in memberships]
     role_map = {m["trip_id"]: m["role"] for m in memberships}
     trips = await db.trips.find({"trip_id": {"$in": trip_ids}}, {"_id": 0}).to_list(500)
+    
+    # Pre-aggregate member counts to avoid N+1 queries
+    counts = await db.memberships.aggregate([
+        {"$match": {"trip_id": {"$in": trip_ids}}},
+        {"$group": {"_id": "$trip_id", "count": {"$sum": 1}}}
+    ]).to_list(len(trip_ids))
+    count_map = {c["_id"]: c["count"] for c in counts}
+    
     out = []
     for t in trips:
-        e = await enrich_trip(t)
+        e = await enrich_trip(t, member_count=count_map.get(t["trip_id"], 1))
         e["my_role"] = role_map.get(t["trip_id"], "viewer")
         out.append(e)
     out.sort(key=lambda x: x.get("start_date", ""), reverse=True)
@@ -123,7 +131,7 @@ async def create_trip(body: TripIn, user=Depends(get_current_user)):
         "family_head_id": None,
         "joined_at": now_utc().isoformat(),
     })
-    e = await enrich_trip(doc)
+    e = await enrich_trip(doc, member_count=1)
     e["my_role"] = "admin"
     return {"trip": e}
 
@@ -134,7 +142,8 @@ async def get_trip(trip_id: str, user=Depends(get_current_user)):
     trip = await db.trips.find_one({"trip_id": trip_id}, {"_id": 0})
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
-    e = await enrich_trip(trip)
+    count = await db.memberships.count_documents({"trip_id": trip_id})
+    e = await enrich_trip(trip, member_count=count)
     e["my_role"] = m["role"]
     return {"trip": e}
 
@@ -146,7 +155,8 @@ async def update_trip(trip_id: str, body: TripUpdate, user=Depends(get_current_u
     if update:
         await db.trips.update_one({"trip_id": trip_id}, {"$set": update})
     trip = await db.trips.find_one({"trip_id": trip_id}, {"_id": 0})
-    return {"trip": await enrich_trip(trip)}
+    count = await db.memberships.count_documents({"trip_id": trip_id})
+    return {"trip": await enrich_trip(trip, member_count=count)}
 
 
 @router.delete("/trips/{trip_id}")
@@ -162,7 +172,8 @@ async def set_storage(trip_id: str, body: StorageIn, user=Depends(get_current_us
     await require_member(trip_id, user, "admin")
     await db.trips.update_one({"trip_id": trip_id}, {"$set": {"storage_provider": body.dict()}})
     trip = await db.trips.find_one({"trip_id": trip_id}, {"_id": 0})
-    return {"trip": await enrich_trip(trip)}
+    count = await db.memberships.count_documents({"trip_id": trip_id})
+    return {"trip": await enrich_trip(trip, member_count=count)}
 
 
 @router.delete("/trips/{trip_id}/storage")
@@ -179,7 +190,8 @@ async def join_trip(body: JoinIn, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Invalid invite code")
     existing = await get_membership(trip["trip_id"], user["user_id"])
     if existing:
-        e = await enrich_trip(trip)
+        count = await db.memberships.count_documents({"trip_id": trip["trip_id"]})
+        e = await enrich_trip(trip, member_count=count)
         e["my_role"] = existing["role"]
         return {"trip": e, "already_member": True}
     await db.memberships.insert_one({
@@ -190,7 +202,8 @@ async def join_trip(body: JoinIn, user=Depends(get_current_user)):
         "family_head_id": None,
         "joined_at": now_utc().isoformat(),
     })
-    e = await enrich_trip(trip)
+    count = await db.memberships.count_documents({"trip_id": trip["trip_id"]})
+    e = await enrich_trip(trip, member_count=count)
     e["my_role"] = "member"
     # Broadcast membership update
     await manager.broadcast(trip["trip_id"], {"type": "member_joined", "user_id": user["user_id"]})
@@ -202,10 +215,20 @@ async def join_trip(body: JoinIn, user=Depends(get_current_user)):
 async def list_members(trip_id: str, user=Depends(get_current_user)):
     await require_member(trip_id, user)
     members = await db.memberships.find({"trip_id": trip_id}, {"_id": 0}).to_list(500)
+    if not members:
+        return {"members": []}
+    user_ids = list(set(m["user_id"] for m in members))
+    users = await db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(len(user_ids))
+    user_map = {u["user_id"]: u for u in users}
     out = []
     for m in members:
-        pub = await user_public(m["user_id"])
-        out.append({**m, **pub})
+        u = user_map.get(m["user_id"]) or {}
+        out.append({
+            **m,
+            "name": u.get("name"),
+            "avatar": u.get("avatar"),
+            "email": u.get("email")
+        })
     return {"members": out}
 
 

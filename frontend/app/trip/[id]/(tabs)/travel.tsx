@@ -1,5 +1,6 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -9,7 +10,7 @@ import { useToast } from "@/src/context/ToastContext";
 import { Sheet } from "@/src/components/Sheet";
 import { Button, Input, FAB, Loading, EmptyState, Chip } from "@/src/components/ui";
 import { pickImageFromLibrary } from "@/src/lib/media";
-import { colors, spacing, font, fontSize, radius, travelModeMeta } from "@/src/theme";
+import { createStyles, spacing, font, fontSize, radius, travelModeMeta } from "@/src/theme";
 import { fmtDate } from "@/src/lib/format";
 
 type Passenger = { name: string; coach?: string; seat?: string; berth?: string; status?: string };
@@ -26,6 +27,8 @@ type Segment = {
 };
 
 function BoardingPass({ seg, onDelete, canEdit }: { seg: Segment; onDelete: () => void; canEdit: boolean }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const meta = travelModeMeta[seg.mode];
   return (
     <View style={styles.pass} testID={`segment-${seg.segment_id}`}>
@@ -91,6 +94,8 @@ function BoardingPass({ seg, onDelete, canEdit }: { seg: Segment; onDelete: () =
 }
 
 export default function TravelTab() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { tripId, canEdit } = useTrip();
   const [segments, setSegments] = useState<Segment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,7 +246,7 @@ export default function TravelTab() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   pass: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
   passHeader: {
@@ -282,4 +287,4 @@ const styles = StyleSheet.create({
   },
   scanText: { color: colors.brand, fontFamily: font.display, fontSize: fontSize.base, fontWeight: "500" },
   scanHint: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: fontSize.sm, marginTop: 1 },
-});
+}));

@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState, useCallback, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,7 +10,7 @@ import { useTrip } from "@/src/context/TripContext";
 import { useToast } from "@/src/context/ToastContext";
 import { Sheet } from "@/src/components/Sheet";
 import { Button, Input, FAB, Loading, EmptyState } from "@/src/components/ui";
-import { colors, spacing, font, fontSize, radius } from "@/src/theme";
+import { spacing, font, fontSize, radius, createStyles } from "@/src/theme";
 import { fmtDate, elapsed } from "@/src/lib/format";
 
 type Day = {
@@ -23,6 +24,8 @@ type Day = {
 };
 
 function PulsingDot() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const scale = useSharedValue(1);
   useEffect(() => {
     scale.value = withRepeat(withSequence(withTiming(1.6, { duration: 800 }), withTiming(1, { duration: 800 })), -1, false);
@@ -37,6 +40,8 @@ function PulsingDot() {
 }
 
 function ActiveBanner({ day, onStop, isAdmin }: { day: Day; onStop: () => void; isAdmin: boolean }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((x) => x + 1), 1000);
@@ -63,6 +68,8 @@ function ActiveBanner({ day, onStop, isAdmin }: { day: Day; onStop: () => void; 
 }
 
 export default function ItineraryTab() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { tripId, canEdit, isAdmin } = useTrip();
   const [days, setDays] = useState<Day[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,7 +205,8 @@ export default function ItineraryTab() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   container: { flex: 1, backgroundColor: colors.surface },
   banner: {
     backgroundColor: colors.brand,
@@ -240,4 +248,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand,
   },
   startText: { color: colors.brand, fontFamily: font.text, fontSize: fontSize.sm, fontWeight: "500" },
-});
+}));

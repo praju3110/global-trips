@@ -1,10 +1,11 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React from "react";
 import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { colors, spacing, font, fontSize } from "@/src/theme";
+import { spacing, font, fontSize , createStyles } from "@/src/theme";
 
 export function GlassHeader({
   title,
@@ -19,6 +20,8 @@ export function GlassHeader({
   right?: React.ReactNode;
   testID?: string;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   return (
@@ -47,9 +50,10 @@ export function GlassHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   wrap: {
-    backgroundColor: colors.surface + "EE",
+    backgroundColor: colors.surfaceGlass,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     paddingBottom: spacing.md,
@@ -61,4 +65,4 @@ const styles = StyleSheet.create({
   title: { color: colors.onSurface, fontFamily: font.display, fontSize: fontSize.lg, fontWeight: "500" },
   subtitle: { color: colors.muted, fontFamily: font.text, fontSize: fontSize.sm, marginTop: 1 },
   right: { minWidth: 40, alignItems: "flex-end" },
-});
+}));

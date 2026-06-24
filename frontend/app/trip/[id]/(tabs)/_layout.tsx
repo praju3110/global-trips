@@ -1,16 +1,20 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React from "react";
 import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTrip } from "@/src/context/TripContext";
-import { colors, spacing, font, fontSize, tripTypeMeta } from "@/src/theme";
+
+import { spacing, font, fontSize, tripTypeMeta, createStyles } from "@/src/theme";
 import { dateRange } from "@/src/lib/format";
 
 function TripHeader() {
   const { trip } = useTrip();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { theme, colors, toggleTheme } = useAppTheme();
+  const styles = useStyles();
   const meta = trip ? tripTypeMeta[trip.trip_type] : tripTypeMeta.group;
   return (
     <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -27,6 +31,9 @@ function TripHeader() {
         </View>
       </View>
       <View style={styles.hRight}>
+        <Pressable onPress={toggleTheme} hitSlop={10} style={styles.hIcon} testID="trip-theme-btn">
+          <Ionicons name={theme === "light" ? "moon-outline" : "sunny-outline"} size={20} color={colors.onSurface} />
+        </Pressable>
         <Pressable onPress={() => router.push(`/trip/${trip?.trip_id}/wrapped`)} hitSlop={10} style={styles.hIcon} testID="trip-wrapped-btn">
           <Ionicons name="sparkles" size={20} color={colors.brandSecondary} />
         </Pressable>
@@ -39,6 +46,8 @@ function TripHeader() {
 }
 
 export default function TripTabsLayout() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
@@ -52,8 +61,8 @@ export default function TripTabsLayout() {
           tabBarStyle: {
             backgroundColor: colors.surfaceSecondary,
             borderTopColor: colors.border,
-            height: 60 + insets.bottom,
-            paddingBottom: insets.bottom + 6,
+            height: Platform.OS === "web" ? 72 : (60 + insets.bottom),
+            paddingBottom: Platform.OS === "web" ? 14 : (insets.bottom + 6),
             paddingTop: 8,
           },
           tabBarLabelStyle: { fontFamily: font.text, fontSize: 11, fontWeight: "500" },
@@ -84,7 +93,8 @@ export default function TripTabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -100,4 +110,4 @@ const styles = StyleSheet.create({
   hSubRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 },
   hSub: { color: colors.muted, fontFamily: font.text, fontSize: fontSize.sm, maxWidth: 220 },
   hRight: { flexDirection: "row", alignItems: "center" },
-});
+}));

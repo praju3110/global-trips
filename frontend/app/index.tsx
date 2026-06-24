@@ -1,10 +1,13 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import { useEffect } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/src/context/AuthContext";
-import { colors } from "@/src/theme";
+import { createStyles } from "@/src/theme";
 
 export default function Index() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -21,6 +24,7 @@ export default function Index() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   container: { flex: 1, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
-});
+}));

@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React from "react";
 import {
   StyleSheet,
@@ -15,10 +16,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
-import { colors, radius, spacing, font, fontSize } from "@/src/theme";
+import { createStyles, radius, spacing, font, fontSize } from "@/src/theme";
 
 const haptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
-  if (Platform.OS !== "web") Haptics.impactAsync(style).catch(() => {});
+  if (Platform.OS !== "web") Haptics.impactAsync(style).catch(() => { });
 };
 
 // ---------------- Button ----------------
@@ -41,14 +42,16 @@ export function Button({
   testID?: string;
   style?: ViewStyle;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const bg =
     variant === "primary"
       ? colors.brand
       : variant === "danger"
-      ? colors.error
-      : variant === "secondary"
-      ? colors.surfaceTertiary
-      : "transparent";
+        ? colors.error
+        : variant === "secondary"
+          ? colors.surfaceTertiary
+          : "transparent";
   const fg = variant === "ghost" ? colors.brand : "#fff";
   return (
     <Pressable
@@ -84,6 +87,8 @@ export function Input({
   containerStyle,
   ...props
 }: TextInputProps & { label?: string; icon?: string; containerStyle?: ViewStyle }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const [focused, setFocused] = React.useState(false);
   return (
     <View style={[{ gap: spacing.sm }, containerStyle]}>
@@ -119,6 +124,8 @@ export function Card({
   onPress?: () => void;
   testID?: string;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const content = <View style={[styles.card, style]}>{children}</View>;
   if (onPress) {
     return (
@@ -132,6 +139,8 @@ export function Card({
 
 // ---------------- Avatar ----------------
 export function Avatar({ name, uri, size = 40 }: { name?: string | null; uri?: string | null; size?: number }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const initials = (name || "?")
     .split(" ")
     .map((p) => p[0])
@@ -179,6 +188,8 @@ export function Chip({
   icon?: string;
   testID?: string;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <Pressable
       testID={testID}
@@ -203,6 +214,8 @@ export function Segmented({
   onChange: (k: string) => void;
   testID?: string;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <View style={styles.segWrap} testID={testID}>
       {options.map((o) => {
@@ -226,6 +239,8 @@ export function Segmented({
 
 // ---------------- FAB ----------------
 export function FAB({ icon = "add", onPress, testID, bottom = 24 }: { icon?: string; onPress: () => void; testID?: string; bottom?: number }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <Pressable
       testID={testID}
@@ -241,6 +256,8 @@ export function FAB({ icon = "add", onPress, testID, bottom = 24 }: { icon?: str
 
 // ---------------- States ----------------
 export function Loading({ testID }: { testID?: string }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <View style={styles.center} testID={testID}>
       <ActivityIndicator color={colors.brand} size="large" />
@@ -263,6 +280,8 @@ export function EmptyState({
   onAction?: () => void;
   testID?: string;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <View style={styles.center} testID={testID}>
       <View style={styles.emptyIcon}>
@@ -277,7 +296,10 @@ export function EmptyState({
   );
 }
 
-export function Pill({ label, color = colors.brand, icon }: { label: string; color?: string; icon?: string }) {
+export function Pill({ label, color: initialColor, icon }: { label: string; color?: string; icon?: string }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
+  const color = initialColor || colors.brand;
   return (
     <View style={[styles.pill, { backgroundColor: color + "22", borderColor: color + "55" }]}>
       {icon && <Ionicons name={icon as any} size={12} color={color} />}
@@ -286,7 +308,7 @@ export function Pill({ label, color = colors.brand, icon }: { label: string; col
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
   btn: {
     height: 52,
     borderRadius: radius.md,
@@ -375,4 +397,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   pillText: { fontFamily: font.text, fontSize: fontSize.sm, fontWeight: "500" },
-});
+}));

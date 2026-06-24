@@ -40,18 +40,28 @@ class TravelIn(BaseModel):
     passengers: List[Passenger] = []
 
 
-class ExtractIn(BaseModel):
+class TicketFile(BaseModel):
     file_base64: str
     mime: str = "image/jpeg"
 
 
+class ExtractIn(BaseModel):
+    files: Optional[List[TicketFile]] = None
+    file_base64: Optional[str] = None
+    mime: Optional[str] = "image/jpeg"
+
+
 EXTRACT_PROMPT = (
-    "You are a travel ticket parser. Read this ticket (flight/train/bus/car) and extract its details. "
-    "Return ONLY valid minified JSON (no markdown, no commentary) with EXACTLY this shape: "
-    '{"mode":"flight|train|bus|car","provider_name":"","code":"","origin":"","destination":"",'
-    '"depart_time":"","arrive_time":"","passengers":[{"name":"","coach":"","seat":"","berth":"","status":"Confirmed"}]}. '
-    "Use an empty string for any unknown field. Format depart_time/arrive_time as 'YYYY-MM-DD HH:MM' when present, else ''. "
-    "origin/destination should be the station/airport/city names or codes. Infer mode from context."
+    "You are an expert travel ticket parser. Read the attached tickets (which may be images or PDFs) and extract their details. "
+    "Some tickets might belong to the same travel segment (e.g., same carrier/train number, origin, destination, and depart date). "
+    "Group tickets of the same segment together, merging their passenger list (ensuring no duplicate passenger names within the same segment). "
+    "For tickets of different segments (e.g. outbound and return tickets, different carriers, or different dates), create separate segments. "
+    "Return a JSON object containing an array of segments in the 'segments' key. "
+    "Return ONLY valid minified JSON (no markdown, no commentary) with EXACTLY this shape:\n"
+    '{"segments": [{"mode":"flight|train|bus|car","provider_name":"","code":"","origin":"","destination":"",'
+    '"depart_time":"","arrive_time":"","passengers":[{"name":"","coach":"","seat":"","berth":"","status":"Confirmed"}]}]}. '
+    "Use empty strings for any unknown fields. Format depart_time and arrive_time as 'YYYY-MM-DD HH:MM' when present. "
+    "Ensure origin/destination are airport/station codes or names."
 )
 
 
@@ -100,33 +110,65 @@ async def delete_travel(trip_id: str, segment_id: str, user=Depends(get_current_
 @router.post("/trips/{trip_id}/travel/extract")
 async def extract_ticket(trip_id: str, body: ExtractIn, user=Depends(get_current_user)):
     await require_member(trip_id, user, "member")
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=400, detail="AI extraction is not configured")
     
-    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent, FileContentWithMimeType
-    raw = body.file_base64.split(",", 1)[-1] if body.file_base64.startswith("data:") else body.file_base64
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"ticket-{uuid.uuid4().hex}",
-        system_message="You extract structured travel ticket data and reply with pure JSON."
-    )
-    tmp_path = None
-    try:
-        if body.mime == "application/pdf":
-            chat.with_model("gemini", "gemini-2.5-flash")
-            import base64 as _b64
-            tmp_path = f"/tmp/{uuid.uuid4().hex}.pdf"
-            os.makedirs("/tmp", exist_ok=True)
-            with open(tmp_path, "wb") as f:
-                f.write(_b64.b64decode(raw))
-            content = FileContentWithMimeType(file_path=tmp_path, mime_type="application/pdf")
-        else:
-            chat.with_model("openai", "gpt-4o")
-            content = ImageContent(image_base64=raw)
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="Gemini API key is not configured")
+    
+    files_to_process = []
+    if body.files:
+        files_to_process = body.files
+    elif body.file_base64:
+        files_to_process = [TicketFile(file_base64=body.file_base64, mime=body.mime)]
         
-        msg = UserMessage(text=EXTRACT_PROMPT, file_contents=[content])
-        resp = await chat.send_message(msg)
-        text = resp if isinstance(resp, str) else getattr(resp, "content", str(resp))
+    if not files_to_process:
+        raise HTTPException(status_code=400, detail="No files provided for extraction")
+    
+    import base64 as _b64
+    
+    try:
+        try:
+            # Try official modern google-genai SDK first
+            from google import genai
+            from google.genai import types
+            
+            client = genai.Client(api_key=api_key)
+            contents = []
+            for f in files_to_process:
+                raw = f.file_base64.split(",", 1)[-1] if f.file_base64.startswith("data:") else f.file_base64
+                raw_bytes = _b64.b64decode(raw)
+                contents.append(
+                    types.Part.from_bytes(
+                        data=raw_bytes,
+                        mime_type=f.mime,
+                    )
+                )
+            contents.append(EXTRACT_PROMPT)
+            
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=contents
+            )
+            text = response.text
+        except ImportError:
+            # Fall back to legacy google-generativeai
+            import google.generativeai as legacy_genai
+            legacy_genai.configure(api_key=api_key)
+            model = legacy_genai.GenerativeModel('gemini-2.5-flash')
+            
+            legacy_contents = []
+            for f in files_to_process:
+                raw = f.file_base64.split(",", 1)[-1] if f.file_base64.startswith("data:") else f.file_base64
+                raw_bytes = _b64.b64decode(raw)
+                legacy_contents.append({
+                    'mime_type': f.mime,
+                    'data': raw_bytes
+                })
+            legacy_contents.append(EXTRACT_PROMPT)
+            
+            response = model.generate_content(legacy_contents)
+            text = response.text
+        
         cleaned = text.strip()
         cleaned = re.sub(r"^```(?:json)?", "", cleaned).strip()
         cleaned = re.sub(r"```$", "", cleaned).strip()
@@ -135,17 +177,24 @@ async def extract_ticket(trip_id: str, body: ExtractIn, user=Depends(get_current
         except Exception:
             m = re.search(r"\{.*\}", cleaned, re.DOTALL)
             if not m:
-                raise HTTPException(status_code=422, detail="Could not read this ticket. Try a clearer image.")
+                raise HTTPException(status_code=422, detail="Could not read this ticket. Try a clearer image or PDF.")
             data = json.loads(m.group(0))
-        return {"extracted": data}
+            
+        # Standardize return format: ensure we always return a list of segments
+        extracted_segments = []
+        if isinstance(data, dict):
+            if "segments" in data:
+                extracted_segments = data["segments"]
+            elif "mode" in data:
+                extracted_segments = [data]
+        elif isinstance(data, list):
+            extracted_segments = data
+            
+        extracted_dict = extracted_segments[0] if extracted_segments else {}
+        return {"extracted": extracted_dict}
     except HTTPException:
         raise
     except Exception as e:
         logger.warning(f"Ticket extraction failed: {e}")
-        raise HTTPException(status_code=502, detail="Extraction failed. Please enter details manually.")
-    finally:
-        if tmp_path:
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
+        raise HTTPException(status_code=502, detail=f"Extraction failed: {str(e)}")
+

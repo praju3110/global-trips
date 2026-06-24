@@ -1,8 +1,10 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import { Stack } from "expo-router";
 import { TripProvider } from "@/src/context/TripContext";
-import { colors } from "@/src/theme";
+import { createStyles } from "@/src/theme";
 
 export default function TripLayout() {
+  const { colors } = useAppTheme();
   return (
     <TripProvider>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>

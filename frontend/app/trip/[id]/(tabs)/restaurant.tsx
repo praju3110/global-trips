@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,7 +9,7 @@ import { useTrip } from "@/src/context/TripContext";
 import { useToast } from "@/src/context/ToastContext";
 import { Sheet } from "@/src/components/Sheet";
 import { FAB, Loading, EmptyState, Button, Input, Chip } from "@/src/components/ui";
-import { colors, spacing, font, fontSize, radius } from "@/src/theme";
+import { spacing, font, fontSize, radius , createStyles } from "@/src/theme";
 import { money } from "@/src/lib/format";
 
 type Item = { item_id: string; name: string; price: number; veg: boolean; ordered_by: string[] };
@@ -23,6 +24,8 @@ type Session = {
 type Split = { subtotal: number; tax: number; tip: number; total: number; breakdown: { user_id: string; name: string; food: number; extras: number; total: number }[] };
 
 export default function RestaurantTab() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { tripId, canEdit, members } = useTrip();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -221,7 +224,8 @@ export default function RestaurantTab() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   container: { flex: 1, backgroundColor: colors.surface },
   sessionCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
   sessionTop: { flexDirection: "row", alignItems: "center", gap: spacing.md },
@@ -245,4 +249,4 @@ const styles = StyleSheet.create({
   splitTotalLabel: { color: colors.onSurface, fontFamily: font.display, fontSize: fontSize.lg, fontWeight: "500" },
   splitTotalVal: { color: colors.brand, fontFamily: font.display, fontSize: fontSize.lg, fontWeight: "500" },
   perPersonVal: { color: colors.brand, fontFamily: font.display, fontSize: fontSize.base, fontWeight: "500" },
-});
+}));

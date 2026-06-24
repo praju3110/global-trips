@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React from "react";
 import {
   Modal,
@@ -11,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, radius, spacing, font, fontSize } from "@/src/theme";
+import { createStyles, radius, spacing, font, fontSize } from "@/src/theme";
 
 export function Sheet({
   visible,
@@ -27,6 +28,8 @@ export function Sheet({
   testID?: string;
 }) {
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -57,7 +60,7 @@ export function Sheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
   backdropPress: { ...StyleSheet.absoluteFillObject },
   kav: { width: "100%" },
@@ -86,4 +89,4 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: { color: colors.onSurface, fontFamily: font.display, fontSize: fontSize.xl, fontWeight: "500" },
-});
+}));

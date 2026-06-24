@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Platform, Share } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,9 +9,11 @@ import { useTrip } from "@/src/context/TripContext";
 import { useToast } from "@/src/context/ToastContext";
 import { WrappedStory, Wrapped } from "@/src/components/WrappedStory";
 import { Loading } from "@/src/components/ui";
-import { colors, spacing, font, fontSize } from "@/src/theme";
+import { spacing, font, fontSize , createStyles } from "@/src/theme";
 
 export default function WrappedScreen() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { tripId } = useTrip();
   const router = useRouter();
   const toast = useToast();
@@ -65,10 +68,11 @@ export default function WrappedScreen() {
   return <WrappedStory data={data} onClose={() => router.back()} onShare={share} sharing={sharing} />;
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   container: { flex: 1, backgroundColor: colors.surface },
   center: { alignItems: "center", justifyContent: "center", gap: spacing.md, padding: spacing.xl },
   emptyText: { color: "#fff", fontFamily: font.text, fontSize: fontSize.lg, textAlign: "center" },
   closeBtn: { marginTop: spacing.lg, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: 12, backgroundColor: colors.surfaceTertiary },
   closeText: { color: "#fff", fontFamily: font.display, fontSize: fontSize.base, fontWeight: "500" },
-});
+}));

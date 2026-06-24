@@ -68,8 +68,17 @@ async def build_unit_map(trip_id: str, trip_type: str):
     unit_of = {}
     unit_label = {}
     pub_cache = {}
-    for m in members:
-        pub_cache[m["user_id"]] = await user_public(m["user_id"])
+    if members:
+        user_ids = list(set(m["user_id"] for m in members))
+        users = await db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(len(user_ids))
+        pub_cache = {
+            u["user_id"]: {
+                "user_id": u["user_id"],
+                "name": u.get("name"),
+                "avatar": u.get("avatar"),
+                "email": u.get("email")
+            } for u in users
+        }
     
     if trip_type == "family":
         for m in members:
@@ -81,7 +90,7 @@ async def build_unit_map(trip_id: str, trip_type: str):
     else:
         for m in members:
             unit_of[m["user_id"]] = m["user_id"]
-            unit_label[m["user_id"]] = pub_cache[m["user_id"]].get("name") or "Member"
+            unit_label[m["user_id"]] = (pub_cache.get(m["user_id"]) or {}).get("name") or "Member"
     return unit_of, unit_label, pub_cache
 
 
@@ -288,12 +297,19 @@ async def expense_summary(trip_id: str, user=Depends(get_current_user)):
 async def get_transactions(trip_id: str, user=Depends(get_current_user)):
     await require_member(trip_id, user)
     txns = await db.transactions.find({"trip_id": trip_id}, {"_id": 0}).sort("date", -1).to_list(1000)
+    if not txns:
+        return {"transactions": []}
+    user_ids = list(set(t["from_user"] for t in txns) | set(t["to_user"] for t in txns))
+    users = await db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(len(user_ids))
+    user_map = {u["user_id"]: u for u in users}
     out = []
     for t in txns:
+        from_user = user_map.get(t["from_user"]) or {}
+        to_user = user_map.get(t["to_user"]) or {}
         out.append({
             **t,
-            "from_name": (await user_public(t["from_user"]))["name"],
-            "to_name": (await user_public(t["to_user"]))["name"]
+            "from_name": from_user.get("name") or "Unknown",
+            "to_name": to_user.get("name") or "Unknown"
         })
     return {"transactions": out}
 

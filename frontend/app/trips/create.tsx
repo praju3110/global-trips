@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, KeyboardAvoidingView, Platform } from "react-native";
 import { Image } from "expo-image";
@@ -10,7 +11,7 @@ import { Trip } from "@/src/context/TripContext";
 import { GlassHeader } from "@/src/components/GlassHeader";
 import { Button, Input } from "@/src/components/ui";
 import { pickImageFromLibrary } from "@/src/lib/media";
-import { colors, spacing, font, fontSize, radius, tripTypeMeta } from "@/src/theme";
+import { spacing, font, fontSize, radius, tripTypeMeta , createStyles } from "@/src/theme";
 
 const PRESETS = [
   "https://images.unsplash.com/photo-1773378998468-dca683d776e7?crop=entropy&cs=srgb&fm=jpg&q=70&w=600",
@@ -26,6 +27,8 @@ const TYPES: { key: "solo" | "group" | "family"; desc: string }[] = [
 ];
 
 export default function CreateTrip() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const [title, setTitle] = useState("");
   const [destination, setDestination] = useState("");
   const [start, setStart] = useState("");
@@ -123,7 +126,8 @@ export default function CreateTrip() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   container: { flex: 1, backgroundColor: colors.surface },
   section: { color: colors.onSurface, fontFamily: font.display, fontSize: fontSize.lg, fontWeight: "500", marginBottom: spacing.md },
   coverPreview: { width: "100%", height: 160, borderRadius: radius.lg, backgroundColor: colors.surfaceSecondary },
@@ -145,4 +149,4 @@ const styles = StyleSheet.create({
   },
   typeLabel: { color: colors.onSurface, fontFamily: font.display, fontSize: fontSize.lg, fontWeight: "500" },
   typeDesc: { color: colors.muted, fontFamily: font.text, fontSize: fontSize.sm, marginTop: 1 },
-});
+}));

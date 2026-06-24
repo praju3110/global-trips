@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,7 +9,7 @@ import { useTrip } from "@/src/context/TripContext";
 import { useToast } from "@/src/context/ToastContext";
 import { Sheet } from "@/src/components/Sheet";
 import { Button, Input, FAB, Loading, EmptyState, Segmented, Chip, Avatar, Card } from "@/src/components/ui";
-import { colors, spacing, font, fontSize, radius, categoryMeta } from "@/src/theme";
+import { spacing, font, fontSize, radius, categoryMeta, createStyles } from "@/src/theme";
 import { money, fmtDate, CURRENCIES } from "@/src/lib/format";
 
 type Split = { user_id: string; value: number; amount: number };
@@ -35,6 +36,8 @@ type Summary = {
 };
 
 function CategoryChart({ totals, currency }: { totals: Record<string, number>; currency: string }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const total = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
   const cats = Object.entries(totals).sort((a, b) => b[1] - a[1]);
   return (
@@ -58,6 +61,8 @@ function CategoryChart({ totals, currency }: { totals: Record<string, number>; c
 }
 
 function FunFacts({ facts, currency }: { facts: any; currency: string }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   if (!facts) return null;
   const cards = [
     facts.big_splurge && { icon: "flash", color: colors.brand, label: "The Big Splurge", value: money(facts.big_splurge.amount, currency), sub: facts.big_splurge.title },
@@ -82,6 +87,8 @@ function FunFacts({ facts, currency }: { facts: any; currency: string }) {
 }
 
 export default function ExpensesTab() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { tripId, canEdit, members, memberName, trip } = useTrip();
   const [sub, setSub] = useState("particulars");
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -248,7 +255,7 @@ export default function ExpensesTab() {
                 </View>
               </Card>
             )}
-            {summary?.fun_facts?.expense_count > 0 && <FunFacts facts={summary.fun_facts} currency={cur} />}
+            {summary && summary.fun_facts?.expense_count > 0 && <FunFacts facts={summary.fun_facts} currency={cur} />}
 
             <Text style={styles.sectionTitle}>All Expenses</Text>
             {expenses.length === 0 ? (
@@ -401,10 +408,11 @@ export default function ExpensesTab() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   container: { flex: 1, backgroundColor: colors.surface },
   subBar: { padding: spacing.lg, paddingBottom: spacing.sm },
-  totalCard: { alignItems: "center", backgroundColor: colors.brandTertiary, borderColor: colors.brand + "44" },
+  totalCard: { alignItems: "center", backgroundColor: colors.brandTertiary, borderColor: colors.brandAlpha44 },
   totalLabel: { color: colors.onBrandTertiary, fontFamily: font.text, fontSize: fontSize.base },
   totalValue: { color: colors.onSurface, fontFamily: font.display, fontSize: 36, fontWeight: "500", marginTop: 2 },
   familyNote: { color: colors.brand, fontFamily: font.text, fontSize: fontSize.sm, marginTop: 4 },
@@ -447,4 +455,4 @@ const styles = StyleSheet.create({
   partText: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: fontSize.base },
   splitInputRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   splitName: { color: colors.onSurface, fontFamily: font.text, fontSize: fontSize.base },
-});
+}));

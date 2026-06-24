@@ -67,9 +67,23 @@ async def get_media(
     if uploader_id:
         q["uploader_id"] = uploader_id
     items = await db.media.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    if not items:
+        return {"media": []}
+    uploader_ids = list(set(it["uploader_id"] for it in items))
+    users = await db.users.find({"user_id": {"$in": uploader_ids}}, {"_id": 0, "password_hash": 0}).to_list(len(uploader_ids))
+    user_map = {u["user_id"]: u for u in users}
     out = []
     for it in items:
-        out.append({**it, "uploader": await user_public(it["uploader_id"])})
+        uploader = user_map.get(it["uploader_id"]) or {"user_id": it["uploader_id"], "name": "Unknown", "avatar": None, "email": None}
+        out.append({
+            **it,
+            "uploader": {
+                "user_id": uploader["user_id"],
+                "name": uploader.get("name"),
+                "avatar": uploader.get("avatar"),
+                "email": uploader.get("email")
+            }
+        })
     return {"media": out}
 
 

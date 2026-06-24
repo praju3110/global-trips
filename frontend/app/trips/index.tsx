@@ -18,13 +18,16 @@ import { useToast } from "@/src/context/ToastContext";
 import { Trip } from "@/src/context/TripContext";
 import { Avatar, Segmented, FAB, Loading, EmptyState, Pill, Input, Button } from "@/src/components/ui";
 import { Sheet } from "@/src/components/Sheet";
-import { colors, spacing, font, fontSize, radius, tripTypeMeta } from "@/src/theme";
+import { useAppTheme } from "@/src/context/ThemeContext";
+import { createStyles, spacing, font, fontSize, radius, tripTypeMeta } from "@/src/theme";
 import { dateRange } from "@/src/lib/format";
 
 const FALLBACK_HERO =
   "https://images.unsplash.com/photo-1773378998468-dca683d776e7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwzfHxiZWF1dGlmdWwlMjB0cmF2ZWwlMjBkZXN0aW5hdGlvbiUyMGhlcm8lMjBpbWFnZXxlbnwwfHx8fDE3ODIxNTM1NDl8MA&ixlib=rb-4.1.0&q=85";
 
 function TripCard({ trip, onPress }: { trip: Trip; onPress: () => void }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const meta = tripTypeMeta[trip.trip_type] || tripTypeMeta.group;
   return (
     <Pressable onPress={onPress} style={styles.card} testID={`trip-card-${trip.trip_id}`}>
@@ -56,6 +59,8 @@ function TripCard({ trip, onPress }: { trip: Trip; onPress: () => void }) {
 }
 
 export default function TripsDashboard() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [seg, setSeg] = useState("upcoming");
   const [loading, setLoading] = useState(true);
@@ -172,7 +177,7 @@ export default function TripsDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   header: {
     flexDirection: "row",
@@ -225,4 +230,4 @@ const styles = StyleSheet.create({
   cardTitle: { color: "#fff", fontFamily: font.display, fontSize: fontSize["2xl"], fontWeight: "500" },
   cardDates: { color: "rgba(255,255,255,0.85)", fontFamily: font.text, fontSize: fontSize.base, marginTop: 2 },
   sheetHint: { color: colors.muted, fontFamily: font.text, fontSize: fontSize.base, lineHeight: 20 },
-});
+}));

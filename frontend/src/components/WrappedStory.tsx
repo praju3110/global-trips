@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
 import { Image } from "expo-image";
@@ -5,7 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, FadeIn } from "react-native-reanimated";
-import { colors, spacing, font, fontSize } from "@/src/theme";
+import { createStyles, spacing, font, fontSize } from "@/src/theme";
 import { money } from "@/src/lib/format";
 
 const { width } = Dimensions.get("window");
@@ -59,6 +60,8 @@ export function WrappedStory({
   onShare?: () => void;
   sharing?: boolean;
 }) {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const [idx, setIdx] = useState(0);
   const progress = useSharedValue(0);
@@ -119,7 +122,7 @@ export function WrappedStory({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   darkScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(15,17,21,0.35)" },
   progressRow: { position: "absolute", left: spacing.md, right: spacing.md, flexDirection: "row", gap: 4, zIndex: 10 },
@@ -136,4 +139,4 @@ const styles = StyleSheet.create({
   shareBtn: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: "#fff", paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: 999, marginTop: spacing.xl, zIndex: 8 },
   shareText: { color: colors.onSurfaceInverse, fontFamily: font.display, fontSize: fontSize.lg, fontWeight: "500" },
   brandFoot: { position: "absolute", alignSelf: "center", color: "rgba(255,255,255,0.7)", fontFamily: font.display, fontSize: fontSize.base, fontWeight: "500", letterSpacing: 1 },
-});
+}));

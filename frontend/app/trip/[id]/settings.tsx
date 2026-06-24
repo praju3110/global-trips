@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform, ActivityIndicator } from "react-native";
 import * as Clipboard from "expo-clipboard";
@@ -5,16 +6,15 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { getToken } from "@/src/lib/api";
+import { api, getToken } from "@/src/lib/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { api } from "@/src/lib/api";
 import { useTrip } from "@/src/context/TripContext";
 import { useToast } from "@/src/context/ToastContext";
 import { useAuth } from "@/src/context/AuthContext";
 import { GlassHeader } from "@/src/components/GlassHeader";
 import { Avatar, Button, Card, Chip, Pill, Input } from "@/src/components/ui";
 import { Sheet } from "@/src/components/Sheet";
-import { colors, spacing, font, fontSize, radius } from "@/src/theme";
+import { createStyles, spacing, font, fontSize, radius } from "@/src/theme";
 
 const ROLES = ["admin", "member", "viewer"] as const;
 const PROVIDERS = [
@@ -23,6 +23,8 @@ const PROVIDERS = [
 ];
 
 export default function Settings() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { trip, members, isAdmin, refresh, tripId } = useTrip();
   const { user } = useAuth();
   const toast = useToast();
@@ -190,13 +192,13 @@ export default function Settings() {
         {/* Storage */}
         <Card style={{ gap: spacing.md }}>
           <Text style={styles.section}>Media Storage (BYOS)</Text>
-          {trip?.storage_provider?.connected ? (
+          {trip?.storage_provider ? (
             <>
               <View style={styles.storageActive}>
                 <Ionicons name="cloud-done" size={20} color={colors.success} />
                 <Text style={styles.storageActiveText}>{PROVIDERS.find((p) => p.key === trip.storage_provider?.provider)?.label} · {trip.storage_provider.account_label}</Text>
               </View>
-              <Text style={styles.hint}>Members' photos & videos upload directly into your {PROVIDERS.find((p) => p.key === trip.storage_provider?.provider)?.label}. We only store references.</Text>
+              <Text style={styles.hint}>{"Members'"} photos & videos upload directly into your {PROVIDERS.find((p) => p.key === trip.storage_provider?.provider)?.label}. We only store references.</Text>
               {isAdmin && (
                 <View style={{ flexDirection: "row", gap: spacing.md }}>
                   <Button title="Change" variant="secondary" icon="swap-horizontal" onPress={() => setStorageOpen(true)} style={{ flex: 1 }} testID="change-storage-btn" />
@@ -219,7 +221,7 @@ export default function Settings() {
 
       {/* Add Member Sheet */}
       <Sheet visible={addOpen} onClose={() => setAddOpen(false)} title="Add Member" testID="add-member-sheet">
-        <Text style={styles.hint}>Add an existing RoamSync user by their email. They'll join instantly with the role you pick. (If they're not signed up yet, share the invite code instead.)</Text>
+        <Text style={styles.hint}>Add an existing RoamSync user by their email. {"They'll"} join instantly with the role you pick. (If {"they're"} not signed up yet, share the invite code instead.)</Text>
         <Input label="Email" placeholder="friend@email.com" autoCapitalize="none" keyboardType="email-address" value={addEmail} onChangeText={setAddEmail} testID="add-email-input" />
         <View>
           <Text style={styles.addLabel}>Role</Text>
@@ -234,7 +236,7 @@ export default function Settings() {
 
       {/* Storage Sheet */}
       <Sheet visible={storageOpen} onClose={() => setStorageOpen(false)} title="Connect Cloud Storage" testID="storage-sheet">
-        <Text style={styles.hint}>Choose where this trip's photos & videos live. You'll sign in to your account; members then upload straight into your cloud.</Text>
+        <Text style={styles.hint}>Choose where this {"trip's"} photos & videos live. {"You'll"} sign in to your account; members then upload straight into your cloud.</Text>
         {byosProviders.length > 0 && byosProviders.every((p) => !p.configured) && (
           <View style={styles.warnBox}>
             <Ionicons name="warning-outline" size={16} color={colors.warning} />
@@ -273,7 +275,7 @@ export default function Settings() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
   container: { flex: 1, backgroundColor: colors.surface },
   section: { color: colors.onSurface, fontFamily: font.display, fontSize: fontSize.lg, fontWeight: "500" },
   codeBox: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.brand + "55" },
@@ -297,4 +299,4 @@ const styles = StyleSheet.create({
   addBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
   addBtnText: { color: colors.brand, fontFamily: font.text, fontSize: fontSize.sm, fontWeight: "500" },
   addLabel: { color: colors.onSurfaceSecondary, fontFamily: font.text, fontSize: fontSize.base, marginBottom: spacing.sm },
-});
+}));

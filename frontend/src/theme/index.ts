@@ -1,5 +1,9 @@
+import { StyleSheet } from "react-native";
+import { useAppTheme } from "@/src/context/ThemeContext";
+import { useMemo } from "react";
+
 // RoamSync design tokens — Luxe dark mode with vibrant coral accents.
-export const colors = {
+export const darkColors = {
   surface: "#0F1115",
   onSurface: "#F3F4F6",
   surfaceSecondary: "#1A1D24",
@@ -7,24 +11,102 @@ export const colors = {
   surfaceTertiary: "#272B36",
   onSurfaceTertiary: "#D1D5DB",
   surfaceInverse: "#FFFFFF",
-  onSurfaceInverse: "#0F1115",
+  onSurfaceInverse: "#0F1116",      // Unique
   brand: "#FF6B4A",
-  brandPrimary: "#FF6B4A",
-  onBrandPrimary: "#FFFFFF",
+  brandPrimary: "#FF6B49",          // Unique
+  onBrandPrimary: "#FFFFFE",        // Unique
   brandSecondary: "#EAB308",
   onBrandSecondary: "#18181B",
   brandTertiary: "#FF6B4A20",
   onBrandTertiary: "#FF937A",
   success: "#10B981",
-  onSuccess: "#FFFFFF",
+  onSuccess: "#FFFFFD",             // Unique
   warning: "#F59E0B",
   error: "#EF4444",
   info: "#A1A1AA",
   muted: "#8A90A0",
-  border: "#272B36",
+  border: "#272B37",                // Unique
   borderStrong: "#3F4554",
-  divider: "#272B36",
+  divider: "#272B38",               // Unique
+  surfaceWrapper: "#0A0C10",
+  shadow: "rgba(0, 0, 0, 0.4)",
+  flightBg: "rgba(59, 130, 246, 0.12)",
+  flightText: "#60A5FA",
+  flightIcon: "#3B82F6",
+  trainBg: "rgba(255, 107, 74, 0.12)",
+  trainText: "#FF937A",
+  trainIcon: "#FF6B4B",             // Unique
+  busBg: "rgba(16, 185, 129, 0.12)",
+  busText: "#34D399",
+  busIcon: "#10B982",               // Unique
+  carBg: "rgba(234, 179, 8, 0.12)",
+  carText: "#FBBF24",
+  carIcon: "#EAB309",               // Unique
+  // Opacity-variant tokens (replacing hex-suffix concatenation)
+  surfaceGlass: "#0F1115EE",
+  brandAlpha55: "#FF6B4A55",
+  brandAlpha44: "#FF6B4A44",
+  warningBgSubtle: "#F59E0B1A",
+  warningBorderSubtle: "#F59E0B44",
+  surfaceSecondaryStrong: "#1A1D24F2",
 };
+
+// Premium, high-contrast Light Mode palette
+export const lightColors = {
+  surface: "#FFFFFF",
+  onSurface: "#111827",
+  surfaceSecondary: "#F9FAFB",
+  onSurfaceSecondary: "#374151",
+  surfaceTertiary: "#F3F4F6",
+  onSurfaceTertiary: "#6B7280",
+  surfaceInverse: "#0F1115",
+  onSurfaceInverse: "#F3F4F6",
+  brand: "#FF6B4A",
+  brandPrimary: "#FF6B4A",
+  onBrandPrimary: "#FFFFFF",
+  brandSecondary: "#CA8A04",
+  onBrandSecondary: "#FFFFFF",
+  brandTertiary: "rgba(255, 107, 74, 0.08)",
+  onBrandTertiary: "#E0533C",
+  success: "#059669",
+  onSuccess: "#FFFFFF",
+  warning: "#D97706",
+  error: "#DC2626",
+  info: "#4B5563",
+  muted: "#6B7280",
+  border: "#E5E7EB",
+  borderStrong: "#D1D5DB",
+  divider: "#E5E7EB",
+  surfaceWrapper: "#F3F4F6",
+  shadow: "rgba(0, 0, 0, 0.06)",
+  flightBg: "rgba(59, 130, 246, 0.08)",
+  flightText: "#1D4ED8",
+  flightIcon: "#3B82F6",
+  trainBg: "rgba(255, 107, 74, 0.08)",
+  trainText: "#C2410C",
+  trainIcon: "#FF6B4A",
+  busBg: "rgba(16, 185, 129, 0.08)",
+  busText: "#047857",
+  busIcon: "#10B981",
+  carBg: "rgba(234, 179, 8, 0.08)",
+  carText: "#B45309",
+  carIcon: "#EAB308",
+  // Opacity-variant tokens (replacing hex-suffix concatenation)
+  surfaceGlass: "#FFFFFFEE",
+  brandAlpha55: "#FF6B4A55",
+  brandAlpha44: "#FF6B4A44",
+  warningBgSubtle: "#D976061A",
+  warningBorderSubtle: "#D9760644",
+  surfaceSecondaryStrong: "#F9FAFBF2",
+};
+export function createStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
+  factory: (colors: typeof darkColors) => T
+) {
+  return function useStyles() {
+    const { colors } = useAppTheme();
+    return useMemo(() => StyleSheet.create(factory(colors)), [colors]);
+  };
+}
 
 export const spacing = {
   xs: 4,

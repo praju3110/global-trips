@@ -1,3 +1,4 @@
+import { useAppTheme } from "@/src/context/ThemeContext";
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
@@ -8,9 +9,11 @@ import { useToast } from "@/src/context/ToastContext";
 import { GlassHeader } from "@/src/components/GlassHeader";
 import { Avatar, Button, Input, Card } from "@/src/components/ui";
 import { pickImageFromLibrary } from "@/src/lib/media";
-import { colors, spacing, font, fontSize } from "@/src/theme";
+import { spacing, font, fontSize , createStyles } from "@/src/theme";
 
 export default function Profile() {
+  const { colors } = useAppTheme();
+  const styles = useStyles();
   const { user, logout, updateProfile } = useAuth();
   const [name, setName] = useState(user?.name || "");
   const [saving, setSaving] = useState(false);
@@ -71,7 +74,8 @@ export default function Profile() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = createStyles((colors) => ({
+
   container: { flex: 1, backgroundColor: colors.surface },
   avatarWrap: { alignItems: "center", gap: spacing.md, marginTop: spacing.lg },
   editBadge: {
@@ -80,4 +84,4 @@ const styles = StyleSheet.create({
     borderWidth: 3, borderColor: colors.surface,
   },
   email: { color: colors.muted, fontFamily: font.text, fontSize: fontSize.base },
-});
+}));
